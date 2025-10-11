@@ -98,7 +98,29 @@ export async function ensureDefaults(): Promise<void> {
   ]);
 
   if (!settings) {
-    await saveSettings({ bedtime: '23:00', wakeTime: '07:00', themeMode: 'system' });
+    await saveSettings({
+      bedtime: '23:00',
+      wakeTime: '07:00',
+      themeMode: 'system',
+      goals: { good: 70, bad: 30, selfcare: 70 },
+      weekEndsOn: 'sunday'
+    });
+  } else {
+    let needsUpdate = false;
+    const updated = { ...settings };
+
+    if (!settings.goals) {
+      updated.goals = { good: 70, bad: 30, selfcare: 70 };
+      needsUpdate = true;
+    }
+    if (!settings.weekEndsOn) {
+      updated.weekEndsOn = 'sunday';
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      await saveSettings(updated);
+    }
   }
 
   // Categories always exist with defaults if missing

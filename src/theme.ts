@@ -11,6 +11,7 @@ export interface Theme {
     yellow: string;
     red: string;
     accent: string;
+    accentText: string; // text color for accent backgrounds
   };
   spacing: (n: number) => number;
   radius: number;
@@ -34,6 +35,7 @@ const darkTheme: Theme = {
     yellow: '#FFC107',
     red: '#F44336',
     accent: '#90CAF9',
+    accentText: '#000000', // Dark text on light accent
   },
   spacing: (n: number) => 8 * n,
   radius: 12,
@@ -57,6 +59,7 @@ const lightTheme: Theme = {
     yellow: '#FFC107',
     red: '#F44336',
     accent: '#1976D2',
+    accentText: '#FFFFFF', // White text on dark accent
   },
   spacing: (n: number) => 8 * n,
   radius: 12,

@@ -6,7 +6,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTheme } from '../useTheme';
 import { Activity, ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
 import { addActivity, deleteActivity, loadActivities, loadActivityTemplates, loadCategories, loadSettings, updateActivity } from '../storage';
-import { computeRemainingDollars, durationHoursAcrossMidnight, formatTime12h, getDayWindow, isInSleepWindow } from '../utils/time';
+import { computeRemainingDollars, computeSpentDollars, durationHoursAcrossMidnight, formatTime12h, getDayWindow, isInSleepWindow } from '../utils/time';
 import ActivityModal from '../components/ActivityModal';
 
 
@@ -66,6 +66,7 @@ export default function HomeScreen({ navigation }: Props) {
   }, [now, settings]);
 
   const remaining = useMemo(() => computeRemainingDollars(now, settings), [now, settings]);
+  const spent = useMemo(() => computeSpentDollars(now, settings), [now, settings]);
 
   const dayWindow = useMemo(() => getDayWindow(now, settings), [now, settings]);
 
@@ -78,10 +79,18 @@ export default function HomeScreen({ navigation }: Props) {
         if (e < s) e = new Date(e.getTime() + 24 * 60 * 60 * 1000);
         return s < dayWindow.end && e > dayWindow.start;
       })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()); // Reverse: newest first
 
     return filtered;
   }, [activities, dayWindow]);
+
+  // Calculate category totals
+  const categoryTotals = useMemo(() => {
+    return todaysActivities.reduce((acc, activity) => {
+      acc[activity.categoryType] += activity.cost;
+      return acc;
+    }, { good: 0, bad: 0, selfcare: 0 } as Record<CategoryType, number>);
+  }, [todaysActivities]);
 
   function categoryColor(catType: CategoryType): string {
     return categories[catType]?.color ?? theme.colors.divider;
@@ -111,10 +120,10 @@ export default function HomeScreen({ navigation }: Props) {
   function renderHeader() {
     if (sleeping) {
       return (
-        <View style={{ padding: theme.spacing(3), paddingTop: theme.spacing(4) }}>
+        <View style={{ padding: theme.spacing(2), paddingTop: theme.spacing(2) }}>
           {/* Logo */}
-          <View style={{ marginBottom: theme.spacing(3) }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
+          <View style={{ marginBottom: theme.spacing(2) }}>
+            <Text style={{ color: theme.colors.text, fontSize: 24, fontWeight: '900', letterSpacing: -0.5 }}>
               16dollars
             </Text>
           </View>
@@ -126,28 +135,83 @@ export default function HomeScreen({ navigation }: Props) {
     }
 
     return (
-      <View style={{ paddingTop: theme.spacing(4), paddingBottom: theme.spacing(2) }}>
-        {/* Logo */}
-        <View style={{ paddingHorizontal: theme.spacing(3), marginBottom: theme.spacing(4) }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
-            16dollars
-          </Text>
-        </View>
-
-        {/* Vertical Display */}
-        <View>
-          <View style={{ paddingHorizontal: theme.spacing(3), paddingBottom: theme.spacing(1), marginBottom: theme.spacing(2), borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.08)' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '400', letterSpacing: 0.5 }}>
-              left today
+      <View style={{ paddingTop: theme.spacing(2), paddingBottom: theme.spacing(1), paddingHorizontal: theme.spacing(2) }}>
+        {/* Top Row: Logo left, Display right */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          {/* Logo - Top left */}
+          <View style={{ paddingTop: 4 }}>
+            <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 }}>
+              16dollars
             </Text>
           </View>
-          <View style={{ paddingHorizontal: theme.spacing(3) }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 72, fontWeight: '900', letterSpacing: -2 }}>
+
+          {/* Main Display - Right aligned, tight */}
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '400', letterSpacing: 0.3, marginBottom: 4 }}>
+              left today
+            </Text>
+            <Text style={{ color: theme.colors.text, fontSize: 64, fontWeight: '900', letterSpacing: -2, lineHeight: 64 }}>
               ${remaining.toFixed(2)}
             </Text>
           </View>
         </View>
+
+        {/* Spent Dollars - Below, right aligned */}
+        <View style={{ alignItems: 'flex-end', marginTop: theme.spacing(1) }}>
+          <Text style={{ color: theme.colors.muted, fontSize: 13 }}>
+            You've spent ${spent.toFixed(2)} of your day so far.
+          </Text>
+        </View>
       </View>
+    );
+  }
+
+  function renderGoals() {
+    const goals = settings.goals || { good: 70, bad: 30, selfcare: 70 };
+    const categories: Array<{ type: CategoryType; label: string }> = [
+      { type: 'selfcare', label: 'Self-Care' },
+      { type: 'bad', label: 'Bad' },
+      { type: 'good', label: 'Good' },
+    ];
+
+    return (
+      <TouchableOpacity
+        onPress={() => {/* TODO: Open weekly summary */ }}
+        style={{ paddingHorizontal: theme.spacing(3), paddingVertical: theme.spacing(2) }}
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>
+          Goals
+        </Text>
+        {categories.map(({ type, label }) => {
+          const current = categoryTotals[type];
+          const target = goals[type];
+          const progress = Math.min(current / target, 1);
+          const color = categoryColor(type);
+
+          return (
+            <View key={type} style={{ marginBottom: theme.spacing(2) }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={{ color: theme.colors.text, fontSize: 14, fontWeight: '600' }}>{label}</Text>
+                <Text style={{ color: theme.colors.muted, fontSize: 14 }}>
+                  ${current.toFixed(2)} / ${target.toFixed(2)}
+                </Text>
+              </View>
+              {/* Progress Bar */}
+              <View style={{ height: 12, backgroundColor: theme.colors.divider, borderRadius: 20, overflow: 'hidden' }}>
+                <View
+                  style={{
+                    height: '100%',
+                    width: `${progress * 100}%`,
+                    backgroundColor: color,
+                    borderRadius: 20,
+                  }}
+                />
+              </View>
+            </View>
+          );
+        })}
+      </TouchableOpacity>
     );
   }
 
@@ -155,15 +219,48 @@ export default function HomeScreen({ navigation }: Props) {
     const s = new Date(a.startTime);
     const e = new Date(a.endTime);
     const leftColor = categoryColor(a.categoryType);
+    const activityCost = durationHoursAcrossMidnight(a.startTime, a.endTime);
 
     return (
-      <TouchableOpacity key={a.id} onPress={() => { setEditing(a); setModalVisible(true); }} style={{ backgroundColor: theme.colors.card, borderRadius: theme.radius, marginHorizontal: theme.spacing(2), marginBottom: theme.spacing(1), ...theme.shadow, overflow: 'hidden' }}>
-        <View style={{ height: '100%', width: 6, backgroundColor: leftColor, position: 'absolute', left: 0, top: 0, bottom: 0 }} />
-        <View style={{ padding: theme.spacing(2), paddingLeft: theme.spacing(2) + 6 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '600' }}>{a.name}</Text>
-          <Text style={{ color: theme.colors.muted, marginTop: 4 }}>{formatTime12h(s)} - {formatTime12h(e)}  ${durationHoursAcrossMidnight(a.startTime, a.endTime).toFixed(2)}</Text>
+      <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: theme.spacing(2), paddingLeft: theme.spacing(2) }}>
+        {/* Timeline Node */}
+        <View style={{ width: 40, alignItems: 'center', marginRight: theme.spacing(2) }}>
+          <View style={{
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: leftColor,
+            borderWidth: 3,
+            borderColor: theme.colors.background,
+          }} />
         </View>
-      </TouchableOpacity>
+
+        {/* Activity Card */}
+        <TouchableOpacity
+          onPress={() => { setEditing(a); setModalVisible(true); }}
+          style={{
+            flex: 1,
+            backgroundColor: theme.colors.card,
+            borderRadius: 20,
+            ...theme.shadow,
+            overflow: 'hidden',
+            marginRight: theme.spacing(2),
+          }}
+        >
+          <View style={{ height: '100%', width: 4, backgroundColor: leftColor, position: 'absolute', left: 0, top: 0, bottom: 0 }} />
+          <View style={{ padding: theme.spacing(2), paddingLeft: theme.spacing(2) + 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '600', flex: 1 }}>{a.name}</Text>
+              <Text style={{ color: theme.colors.text, fontSize: 32, fontWeight: '900', letterSpacing: -1, marginLeft: theme.spacing(2) }}>
+                ${activityCost.toFixed(2)}
+              </Text>
+            </View>
+            <Text style={{ color: theme.colors.muted, marginTop: 4, fontSize: 14 }}>
+              {formatTime12h(s)} - {formatTime12h(e)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -172,8 +269,11 @@ export default function HomeScreen({ navigation }: Props) {
       {/* Header */}
       {renderHeader()}
 
-      {/* Settings button */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing(2) }}>
+      {/* Goals Section */}
+      {!sleeping && renderGoals()}
+
+      {/* Debug buttons (dev only) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing(2), marginBottom: theme.spacing(1) }}>
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity onPress={async () => {
             const acts = await loadActivities();
@@ -192,47 +292,131 @@ export default function HomeScreen({ navigation }: Props) {
             });
             alert(`${acts.length} activities in storage. Check console for details.`);
           }} style={{ padding: 8 }}>
-            <Text style={{ color: theme.colors.accent }}>Debug</Text>
+            <Text style={{ color: theme.colors.accent, fontSize: 12 }}>Debug</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={async () => {
             const { saveActivities } = await import('../storage');
             const allActivities = await loadActivities();
-            // Filter out activities in today's window (from most recent bedtime onward)
             const todaysStart = dayWindow.start;
             const filtered = allActivities.filter((a) => {
               const activityStart = new Date(a.startTime);
-              return activityStart < todaysStart; // Keep only activities before today's window
+              return activityStart < todaysStart;
             });
             await saveActivities(filtered);
             console.log(`🗑️ RESET TODAY: Removed ${allActivities.length - filtered.length} activities from today`);
             await refresh();
             alert(`Reset today! Removed ${allActivities.length - filtered.length} activities.`);
           }} style={{ padding: 8 }}>
-            <Text style={{ color: '#F44336' }}>Reset Today</Text>
+            <Text style={{ color: '#F44336', fontSize: 12 }}>Reset Today</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ padding: 8 }}>
-          <Text style={{ color: theme.colors.accent }}>Settings</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Activity list */}
-      <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(1), paddingBottom: theme.spacing(28) }}>
-        {todaysActivities.length === 0 && activities.length > 0 && (
-          <View style={{ padding: theme.spacing(2), backgroundColor: 'rgba(255,193,7,0.2)', margin: theme.spacing(2), borderRadius: 8 }}>
-            <Text style={{ color: '#FFC107', fontWeight: '600', marginBottom: 4 }}>⚠️ {activities.length} activities exist but are filtered out</Text>
-            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>They may be outside today's time window. Tap Debug to see details.</Text>
+      {/* Activity list with Timeline */}
+      <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(3), paddingBottom: theme.spacing(32) }}>
+        <View style={{ position: 'relative' }}>
+          {/* Vertical Timeline Line */}
+          <View style={{
+            position: 'absolute',
+            left: theme.spacing(2) + 20,
+            top: 20,
+            bottom: 20,
+            width: 2,
+            backgroundColor: theme.colors.divider,
+          }} />
+
+          {/* Timeline Start: Bedtime ($0) at top */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: theme.spacing(2), marginBottom: theme.spacing(2) }}>
+            <View style={{ width: 40, alignItems: 'center', marginRight: theme.spacing(2) }}>
+              <View style={{
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: theme.colors.divider,
+                borderWidth: 2,
+                borderColor: theme.colors.background,
+              }} />
+            </View>
+            <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: '600' }}>
+              $0 ({settings.bedtime})
+            </Text>
           </View>
-        )}
-        {todaysActivities.map(renderCard)}
+
+          {/* Activities */}
+          {todaysActivities.length === 0 && activities.length > 0 && (
+            <View style={{ padding: theme.spacing(2), backgroundColor: 'rgba(255,193,7,0.2)', margin: theme.spacing(2), marginLeft: theme.spacing(2) + 50, borderRadius: 20 }}>
+              <Text style={{ color: '#FFC107', fontWeight: '600', marginBottom: 4 }}>⚠️ {activities.length} activities exist but are filtered out</Text>
+              <Text style={{ color: theme.colors.muted, fontSize: 12 }}>They may be outside today's time window. Tap Debug to see details.</Text>
+            </View>
+          )}
+          {todaysActivities.map(renderCard)}
+
+          {/* Timeline End: Wake time ($16) at bottom */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: theme.spacing(2), marginTop: theme.spacing(2) }}>
+            <View style={{ width: 40, alignItems: 'center', marginRight: theme.spacing(2) }}>
+              <View style={{
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: theme.colors.divider,
+                borderWidth: 2,
+                borderColor: theme.colors.background,
+              }} />
+            </View>
+            <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: '600' }}>
+              $16 ({settings.wakeTime})
+            </Text>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity onPress={onAddPress} style={{ position: 'absolute', right: theme.spacing(8), bottom: theme.spacing(20), backgroundColor: theme.colors.accent, borderRadius: 28, paddingVertical: 14, paddingHorizontal: 20, ...theme.shadow }}>
-        <Text style={{ color: '#000', fontWeight: '700', fontSize: 18 }}>+ Add</Text>
-      </TouchableOpacity>
+      {/* Bottom Navigation */}
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingTop: theme.spacing(3),
+        paddingBottom: theme.spacing(8), // Much more padding for Android nav buttons (64px)
+        paddingHorizontal: theme.spacing(2),
+        backgroundColor: theme.colors.card,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.divider,
+        ...theme.shadow,
+      }}>
+        <TouchableOpacity
+          onPress={onAddPress}
+          style={{
+            flex: 1,
+            backgroundColor: theme.colors.accent,
+            borderRadius: 20,
+            paddingVertical: 14,
+            marginRight: theme.spacing(1),
+            alignItems: 'center',
+            ...theme.shadow,
+          }}
+        >
+          <Text style={{ color: theme.colors.accentText, fontWeight: '700', fontSize: 16 }}>+ Add</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          style={{
+            flex: 1,
+            backgroundColor: theme.colors.accent,
+            borderRadius: 20,
+            paddingVertical: 14,
+            marginLeft: theme.spacing(1),
+            alignItems: 'center',
+            ...theme.shadow,
+          }}
+        >
+          <Text style={{ color: theme.colors.accentText, fontWeight: '700', fontSize: 16 }}>⚙️ Settings</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Modal */}
       <ActivityModal

@@ -147,6 +147,13 @@ export function computeRemainingDollars(now: Date, settings: UserSettings): numb
   return round2(hoursUntilBed);
 }
 
+export function computeSpentDollars(now: Date, settings: UserSettings): number {
+  // Calculate hours since most recent wake time (1 hour = 1 dollar)
+  const lastWake = getMostRecentWake(now, settings);
+  const hoursSinceWake = Math.max(0, hoursBetween(lastWake, now));
+  return round2(hoursSinceWake);
+}
+
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

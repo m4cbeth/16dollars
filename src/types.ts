@@ -20,8 +20,16 @@ export interface Activity {
   cost: number; // derived from duration in hours (can exceed 1 hour)
 }
 
+export interface CategoryGoals {
+  good: number;
+  bad: number;
+  selfcare: number;
+}
+
 export interface UserSettings {
   bedtime: string; // e.g. "23:00"
   wakeTime: string; // e.g. "07:00"
   themeMode?: 'light' | 'dark' | 'system'; // theme preference
+  goals?: CategoryGoals; // target dollars for each category
+  weekEndsOn?: 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'; // last day of week
 }

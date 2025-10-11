@@ -37,7 +37,6 @@ function format12h(hours: number, minutes: number): string {
 export default function ActivityModal({ visible, onClose, onSave, onDelete, templates, categories, initial, baseDay }: Props) {
   const { theme } = useTheme();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [name, setName] = useState<string>('');
   const [start, setStart] = useState<Date>(new Date());
   const [end, setEnd] = useState<Date>(new Date());
 
@@ -52,7 +51,6 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
       const initEnd = initial ? new Date(initial.endTime) : setTime(baseDay, 10, 0);
 
       setSelectedTemplateId(initTemplate || '');
-      setName(initial?.name || templates[0]?.name || '');
       setStart(initStart);
       setEnd(initEnd);
       setShowStartPicker(false);
@@ -83,7 +81,7 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
 
     const activity: Activity = {
       id,
-      name: name.trim() || selectedTemplate?.name || 'Activity',
+      name: selectedTemplate?.name || 'Activity',
       categoryType,
       startTime: start.toISOString(),
       endTime: endAdj.toISOString(),
@@ -94,100 +92,119 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
   }
 
   function selectTemplate(id: string) {
-    const prevTemplate = templates.find(t => t.id === selectedTemplateId);
-    const nextTemplate = templates.find(t => t.id === id);
-    // If name matches previous template name, update it to new template name
     setSelectedTemplateId(id);
-    setName((curr) => (curr.trim() === (prevTemplate?.name ?? '') ? (nextTemplate?.name ?? curr) : curr));
   }
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderTopLeftRadius: theme.radius, borderTopRightRadius: theme.radius, maxHeight: '90%' }}>
+        <View style={{ backgroundColor: theme.colors.card, padding: theme.spacing(3), borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' }}>
           <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '600', marginBottom: theme.spacing(2) }}>{initial ? 'Edit Activity' : 'Add Activity'}</Text>
-          <ScrollView style={{ maxHeight: 380 }}>
-            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Activity</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: theme.spacing(2) }}>
+
+          <ScrollView style={{ maxHeight: 450 }}>
+            {/* Activity Templates - Wrapping */}
+            <Text style={{ color: theme.colors.muted, marginBottom: 8, fontSize: 14, fontWeight: '600' }}>Activity</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing(3) }}>
               {templates.map((t) => {
                 const catColor = categories[t.categoryType]?.color ?? theme.colors.divider;
                 const isSelected = selectedTemplateId === t.id;
                 return (
-                  <TouchableOpacity key={t.id} onPress={() => selectTemplate(t.id)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, marginRight: 8, backgroundColor: isSelected ? catColor : theme.colors.divider }}>
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => selectTemplate(t.id)}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 20,
+                      marginRight: 8,
+                      marginBottom: 8,
+                      backgroundColor: isSelected ? catColor : theme.colors.divider
+                    }}
+                  >
                     <Text style={{ color: isSelected ? '#FFF' : theme.colors.text, fontWeight: isSelected ? '600' : '400' }}>{t.name}</Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
 
-            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Name</Text>
-            <TextInput
-              placeholder="Activity name"
-              placeholderTextColor={theme.colors.muted}
-              value={name}
-              onChangeText={setName}
-              style={{ color: theme.colors.text, backgroundColor: theme.colors.background, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider, marginBottom: theme.spacing(2) }}
-            />
+            {/* Cost Display */}
+            <View style={{ alignItems: 'center', marginBottom: theme.spacing(3), paddingVertical: theme.spacing(2) }}>
+              <View style={{ alignItems: 'flex-start' }}>
+                <Text style={{ color: theme.colors.muted, fontSize: 18, fontWeight: '600', marginBottom: 2 }}>Cost:</Text>
+                <Text style={{ color: theme.colors.text, fontSize: 64, fontWeight: '900', letterSpacing: -2, lineHeight: 64 }}>
+                  ${cost.toFixed(2)}
+                </Text>
+              </View>
+            </View>
 
-            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Start</Text>
-            <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ padding: 12, backgroundColor: theme.colors.background, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider, marginBottom: theme.spacing(2) }}>
-              <Text style={{ color: theme.colors.text }}>{format12h(start.getHours(), start.getMinutes())}</Text>
-            </TouchableOpacity>
-            {showStartPicker && (
-              <DateTimePicker
-                value={start}
-                mode="time"
-                is24Hour={false}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_e, d) => {
-                  setShowStartPicker(false);
-                  if (d) {
-                    // Preserve the baseDay date, only update the time
-                    const newStart = setTime(baseDay, d.getHours(), d.getMinutes());
-                    setStart(newStart);
-                  }
-                }}
-              />
-            )}
+            {/* Horizontal Time Pickers */}
+            <View style={{ flexDirection: 'row', marginBottom: theme.spacing(2) }}>
+              {/* Start Time */}
+              <View style={{ flex: 1, marginRight: theme.spacing(1) }}>
+                <Text style={{ color: theme.colors.muted, marginBottom: 8, fontSize: 14, fontWeight: '600' }}>Start</Text>
+                <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ padding: 14, backgroundColor: theme.colors.background, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.divider }}>
+                  <Text style={{ color: theme.colors.text, textAlign: 'center', fontSize: 18, fontWeight: '600' }}>{format12h(start.getHours(), start.getMinutes())}</Text>
+                </TouchableOpacity>
+                {showStartPicker && (
+                  <DateTimePicker
+                    value={start}
+                    mode="time"
+                    is24Hour={false}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_e, d) => {
+                      setShowStartPicker(false);
+                      if (d) {
+                        // Preserve the baseDay date, only update the time
+                        const newStart = setTime(baseDay, d.getHours(), d.getMinutes());
+                        setStart(newStart);
+                      }
+                    }}
+                  />
+                )}
+              </View>
 
-            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>End</Text>
-            <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ padding: 12, backgroundColor: theme.colors.background, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider, marginBottom: theme.spacing(1) }}>
-              <Text style={{ color: theme.colors.text }}>{format12h(end.getHours(), end.getMinutes())}</Text>
-            </TouchableOpacity>
-            {showEndPicker && (
-              <DateTimePicker
-                value={end}
-                mode="time"
-                is24Hour={false}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_e, d) => {
-                  setShowEndPicker(false);
-                  if (d) {
-                    // Preserve the baseDay date, only update the time
-                    const newEnd = setTime(baseDay, d.getHours(), d.getMinutes());
-                    setEnd(newEnd);
-                  }
-                }}
-              />
-            )}
-
-            <Text style={{ color: theme.colors.muted, marginBottom: theme.spacing(2) }}>Cost: ${cost.toFixed(2)}</Text>
+              {/* End Time */}
+              <View style={{ flex: 1, marginLeft: theme.spacing(1) }}>
+                <Text style={{ color: theme.colors.muted, marginBottom: 8, fontSize: 14, fontWeight: '600' }}>End</Text>
+                <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ padding: 14, backgroundColor: theme.colors.background, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.divider }}>
+                  <Text style={{ color: theme.colors.text, textAlign: 'center', fontSize: 18, fontWeight: '600' }}>{format12h(end.getHours(), end.getMinutes())}</Text>
+                </TouchableOpacity>
+                {showEndPicker && (
+                  <DateTimePicker
+                    value={end}
+                    mode="time"
+                    is24Hour={false}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_e, d) => {
+                      setShowEndPicker(false);
+                      if (d) {
+                        // Preserve the baseDay date, only update the time
+                        const newEnd = setTime(baseDay, d.getHours(), d.getMinutes());
+                        setEnd(newEnd);
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            </View>
           </ScrollView>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing(2) }}>
-            {initial && onDelete && (
-              <TouchableOpacity onPress={() => onDelete(initial.id)} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider }}>
-                <Text style={{ color: theme.colors.text }}>Delete</Text>
+          {/* Action Buttons */}
+          <View style={{ marginTop: theme.spacing(3) }}>
+            <View style={{ flexDirection: 'row', marginBottom: theme.spacing(1) }}>
+              <TouchableOpacity onPress={onClose} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: theme.colors.divider, marginRight: theme.spacing(1) }}>
+                <Text style={{ color: theme.colors.text, textAlign: 'center', fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
-            )}
-            <View style={{ flexDirection: 'row', marginLeft: 'auto' }}>
-              <TouchableOpacity onPress={onClose} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider, marginRight: 8 }}>
-                <Text style={{ color: theme.colors.text }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSave} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>
-                <Text style={{ color: '#000' }}>Save</Text>
+              <TouchableOpacity onPress={handleSave} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: theme.colors.accent, marginLeft: theme.spacing(1) }}>
+                <Text style={{ color: theme.colors.accentText, fontWeight: '700', textAlign: 'center' }}>Save</Text>
               </TouchableOpacity>
             </View>
+
+            {initial && onDelete && (
+              <TouchableOpacity onPress={() => onDelete(initial.id)} style={{ padding: 14, borderRadius: 12, backgroundColor: theme.colors.red }}>
+                <Text style={{ color: '#FFF', textAlign: 'center', fontWeight: '600' }}>Delete Activity</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
