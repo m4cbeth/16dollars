@@ -317,6 +317,61 @@ export default function SettingsScreen() {
 
       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
 
+      {/* Quick Actions Section */}
+      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Quick Actions</Text>
+      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>One-tap shortcuts to add common activities with preset times.</Text>
+      {(settings.quickActions || []).map((action, idx) => {
+        const template = templates.find(t => t.id === action.templateId);
+        return (
+          <View key={action.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 16, marginBottom: theme.spacing(1) }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing(1) }}>
+              <Text style={{ color: theme.colors.text, fontWeight: '600', fontSize: 16 }}>{template?.name || 'Select Activity'}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const updated = [...(settings.quickActions || [])];
+                  updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+                  setSettings({ ...settings, quickActions: updated });
+                }}
+                style={{
+                  width: 50,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: action.enabled ? theme.colors.green : theme.colors.divider,
+                  justifyContent: 'center',
+                  paddingHorizontal: 4,
+                }}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: '#FFF',
+                  alignSelf: action.enabled ? 'flex-end' : 'flex-start',
+                }} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+              This quick action is currently {action.enabled ? 'enabled' : 'disabled'}
+            </Text>
+          </View>
+        );
+      })}
+      <TouchableOpacity
+        onPress={() => persistSettings(settings)}
+        style={{
+          backgroundColor: theme.colors.accent,
+          padding: 12,
+          borderRadius: 10,
+          alignItems: 'center',
+          marginTop: theme.spacing(1),
+          marginBottom: theme.spacing(3),
+        }}
+      >
+        <Text style={{ color: theme.colors.accentText, fontWeight: '700' }}>Save Quick Actions</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
+
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Activities</Text>
       <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define your activity templates. Each activity belongs to a category type.</Text>
       {templates.map((t, idx) => {

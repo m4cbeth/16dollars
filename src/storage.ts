@@ -103,7 +103,12 @@ export async function ensureDefaults(): Promise<void> {
       wakeTime: '07:00',
       themeMode: 'system',
       goals: { good: 70, bad: 30, selfcare: 70 },
-      weekEndsOn: 'sunday'
+      weekEndsOn: 'sunday',
+      quickActions: [
+        { id: 'sleep', templateId: 'sleep', startTime: { type: 'bedtime' }, endTime: { type: 'wakeTime' }, enabled: true },
+        { id: 'bath', templateId: 'bath', startTime: { type: 'wakeTime' }, endTime: { type: 'offset', minutes: 30 }, enabled: true },
+        { id: 'work', templateId: 'work', startTime: { type: 'offset', minutes: 60 }, endTime: { type: 'offset', minutes: 540 }, enabled: true },
+      ]
     });
   } else {
     let needsUpdate = false;
@@ -115,6 +120,14 @@ export async function ensureDefaults(): Promise<void> {
     }
     if (!settings.weekEndsOn) {
       updated.weekEndsOn = 'sunday';
+      needsUpdate = true;
+    }
+    if (!settings.quickActions) {
+      updated.quickActions = [
+        { id: 'sleep', templateId: 'sleep', startTime: { type: 'bedtime' }, endTime: { type: 'wakeTime' }, enabled: true },
+        { id: 'bath', templateId: 'bath', startTime: { type: 'wakeTime' }, endTime: { type: 'offset', minutes: 30 }, enabled: true },
+        { id: 'work', templateId: 'work', startTime: { type: 'offset', minutes: 60 }, endTime: { type: 'offset', minutes: 540 }, enabled: true },
+      ];
       needsUpdate = true;
     }
 

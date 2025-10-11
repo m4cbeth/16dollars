@@ -1,4 +1,4 @@
-import { UserSettings } from '../types';
+import { UserSettings, TimeReference } from '../types';
 
 /**
  * Validates and normalizes a time string to HH:mm format
@@ -172,4 +172,43 @@ export function overlapsDayWindow(startIso: string, endIso: string, dayStart: Da
   let e = parseISO(endIso);
   if (e < s) e = new Date(e.getTime() + 24 * 60 * 60 * 1000);
   return s < dayEnd && e > dayStart;
+}
+
+/**
+ * Resolves a TimeReference to an actual Date object
+ */
+export function resolveTimeReference(ref: TimeReference, settings: UserSettings, baseDay: Date): Date {
+  switch (ref.type) {
+    case 'bedtime':
+      return toDateWithTime(baseDay, settings.bedtime);
+    case 'wakeTime':
+      return toDateWithTime(baseDay, settings.wakeTime);
+    case 'offset': {
+      // Offset from wake time
+      const wakeDate = toDateWithTime(baseDay, settings.wakeTime);
+      return new Date(wakeDate.getTime() + ref.minutes * 60 * 1000);
+    }
+  }
+}
+
+/**
+ * Formats a TimeReference as a display string (e.g., "11:00pm", "7:00am", "+1h")
+ */
+export function formatTimeReference(ref: TimeReference, settings: UserSettings): string {
+  const tempBase = new Date();
+  switch (ref.type) {
+    case 'bedtime': {
+      const d = toDateWithTime(tempBase, settings.bedtime);
+      return formatTime12h(d);
+    }
+    case 'wakeTime': {
+      const d = toDateWithTime(tempBase, settings.wakeTime);
+      return formatTime12h(d);
+    }
+    case 'offset': {
+      const wakeDate = toDateWithTime(tempBase, settings.wakeTime);
+      const offsetDate = new Date(wakeDate.getTime() + ref.minutes * 60 * 1000);
+      return formatTime12h(offsetDate);
+    }
+  }
 }

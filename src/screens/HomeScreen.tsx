@@ -272,7 +272,7 @@ export default function HomeScreen({ navigation }: Props) {
       {/* Goals Section */}
       {!sleeping && renderGoals()}
 
-      {/* Debug buttons (dev only) */}
+      {/* DEBUG TOOLS - Commented out for production, uncomment for debugging
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing(2), marginBottom: theme.spacing(1) }}>
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity onPress={async () => {
@@ -294,7 +294,7 @@ export default function HomeScreen({ navigation }: Props) {
           }} style={{ padding: 8 }}>
             <Text style={{ color: theme.colors.accent, fontSize: 12 }}>Debug</Text>
           </TouchableOpacity>
-
+          
           <TouchableOpacity onPress={async () => {
             const { saveActivities } = await import('../storage');
             const allActivities = await loadActivities();
@@ -312,6 +312,7 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+      */}
 
       {/* Activity list with Timeline */}
       <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(3), paddingBottom: theme.spacing(32) }}>
@@ -344,12 +345,27 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
 
           {/* Activities */}
+          {/* DEBUG WARNING - Commented out for production
           {todaysActivities.length === 0 && activities.length > 0 && (
             <View style={{ padding: theme.spacing(2), backgroundColor: 'rgba(255,193,7,0.2)', margin: theme.spacing(2), marginLeft: theme.spacing(2) + 50, borderRadius: 20 }}>
               <Text style={{ color: '#FFC107', fontWeight: '600', marginBottom: 4 }}>⚠️ {activities.length} activities exist but are filtered out</Text>
               <Text style={{ color: theme.colors.muted, fontSize: 12 }}>They may be outside today's time window. Tap Debug to see details.</Text>
             </View>
           )}
+          */}
+
+          {/* Motivational Message for Empty Day */}
+          {todaysActivities.length === 0 && (
+            <View style={{ paddingHorizontal: theme.spacing(6), paddingVertical: theme.spacing(4), alignItems: 'center' }}>
+              <Text style={{ color: theme.colors.text, fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: theme.spacing(1) }}>
+                Ready for a fresh start! ✨
+              </Text>
+              <Text style={{ color: theme.colors.muted, fontSize: 16, textAlign: 'center', lineHeight: 24 }}>
+                Start tracking your day by tapping the "+ Add" button below.
+              </Text>
+            </View>
+          )}
+
           {todaysActivities.map(renderCard)}
 
           {/* Timeline End: Wake time ($16) at bottom */}
@@ -428,6 +444,7 @@ export default function HomeScreen({ navigation }: Props) {
         categories={categories}
         initial={editing}
         baseDay={dayWindow.start}
+        settings={settings}
       />
     </View>
   );
