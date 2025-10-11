@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { theme } from '../theme';
+import { useTheme } from '../useTheme';
 import { Activity, ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
 import { addActivity, deleteActivity, loadActivities, loadActivityTemplates, loadCategories, loadSettings, updateActivity } from '../storage';
 import { computeRemainingDollars, durationHoursAcrossMidnight, formatTime12h, getDayWindow, isInSleepWindow } from '../utils/time';
@@ -13,6 +13,7 @@ import ActivityModal from '../components/ActivityModal';
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const { theme, reloadTheme } = useTheme();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [templates, setTemplates] = useState<ActivityTemplate[]>([]);
   const [categories, setCategories] = useState<Record<CategoryType, Category>>({ good: { name: 'Good Time', color: '#4CAF50' }, bad: { name: 'Bad Time', color: '#F44336' }, selfcare: { name: 'Self Care', color: '#FFC107' } });
@@ -43,7 +44,8 @@ export default function HomeScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       refresh();
-    }, [refresh])
+      reloadTheme(); // Also reload theme in case it was changed in Settings
+    }, [refresh, reloadTheme])
   );
 
   useEffect(() => {
@@ -68,15 +70,17 @@ export default function HomeScreen({ navigation }: Props) {
   const dayWindow = useMemo(() => getDayWindow(now, settings), [now, settings]);
 
   const todaysActivities = useMemo(() => {
-    return activities
+    const filtered = activities
       .filter((a) => {
-        // Include if overlaps today's window
+        // Include if overlaps today's window (from most recent bedtime to next bedtime)
         const s = new Date(a.startTime);
         let e = new Date(a.endTime);
         if (e < s) e = new Date(e.getTime() + 24 * 60 * 60 * 1000);
         return s < dayWindow.end && e > dayWindow.start;
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    return filtered;
   }, [activities, dayWindow]);
 
   function categoryColor(catType: CategoryType): string {
@@ -169,7 +173,46 @@ export default function HomeScreen({ navigation }: Props) {
       {renderHeader()}
 
       {/* Settings button */}
-      <View style={{ alignItems: 'flex-end', paddingHorizontal: theme.spacing(2) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.spacing(2) }}>
+        <View style={{ flexDirection: 'row' }}>
+          <TouchableOpacity onPress={async () => {
+            const acts = await loadActivities();
+            console.log('🔍 DIAGNOSTIC CHECK:');
+            console.log('Total in storage:', acts.length);
+            acts.forEach((a, i) => {
+              console.log(`${i + 1}. ${a.name}:`, {
+                id: a.id.substring(0, 8),
+                start: new Date(a.startTime).toLocaleString(),
+                end: new Date(a.endTime).toLocaleString(),
+              });
+            });
+            console.log('Current dayWindow:', {
+              start: dayWindow.start.toLocaleString(),
+              end: dayWindow.end.toLocaleString(),
+            });
+            alert(`${acts.length} activities in storage. Check console for details.`);
+          }} style={{ padding: 8 }}>
+            <Text style={{ color: theme.colors.accent }}>Debug</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={async () => {
+            const { saveActivities } = await import('../storage');
+            const allActivities = await loadActivities();
+            // Filter out activities in today's window (from most recent bedtime onward)
+            const todaysStart = dayWindow.start;
+            const filtered = allActivities.filter((a) => {
+              const activityStart = new Date(a.startTime);
+              return activityStart < todaysStart; // Keep only activities before today's window
+            });
+            await saveActivities(filtered);
+            console.log(`🗑️ RESET TODAY: Removed ${allActivities.length - filtered.length} activities from today`);
+            await refresh();
+            alert(`Reset today! Removed ${allActivities.length - filtered.length} activities.`);
+          }} style={{ padding: 8 }}>
+            <Text style={{ color: '#F44336' }}>Reset Today</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ padding: 8 }}>
           <Text style={{ color: theme.colors.accent }}>Settings</Text>
         </TouchableOpacity>
@@ -177,6 +220,12 @@ export default function HomeScreen({ navigation }: Props) {
 
       {/* Activity list */}
       <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(1), paddingBottom: theme.spacing(28) }}>
+        {todaysActivities.length === 0 && activities.length > 0 && (
+          <View style={{ padding: theme.spacing(2), backgroundColor: 'rgba(255,193,7,0.2)', margin: theme.spacing(2), borderRadius: 8 }}>
+            <Text style={{ color: '#FFC107', fontWeight: '600', marginBottom: 4 }}>⚠️ {activities.length} activities exist but are filtered out</Text>
+            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>They may be outside today's time window. Tap Debug to see details.</Text>
+          </View>
+        )}
         {todaysActivities.map(renderCard)}
       </ScrollView>
 

@@ -13,7 +13,8 @@ export async function loadActivities(): Promise<Activity[]> {
   if (!raw) return [];
   try {
     return JSON.parse(raw) as Activity[];
-  } catch {
+  } catch (e) {
+    console.error('Failed to parse activities:', e);
     return [];
   }
 }
@@ -95,11 +96,11 @@ export async function ensureDefaults(): Promise<void> {
     loadCategories(),
     loadSettings(),
   ]);
-  
+
   if (!settings) {
-    await saveSettings({ bedtime: '23:00', wakeTime: '07:00' });
+    await saveSettings({ bedtime: '23:00', wakeTime: '07:00', themeMode: 'system' });
   }
-  
+
   // Categories always exist with defaults if missing
   if (!cats || Object.keys(cats).length === 0) {
     await saveCategories({
@@ -108,7 +109,7 @@ export async function ensureDefaults(): Promise<void> {
       selfcare: { name: 'Self Care', color: '#FFC107' },
     });
   }
-  
+
   // Activity templates
   if (!templates || templates.length === 0) {
     const defaults: { name: string; categoryType: CategoryType }[] = [

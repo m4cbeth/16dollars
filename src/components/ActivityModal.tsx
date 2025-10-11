@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, TextInput, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Activity, ActivityTemplate, Category, CategoryType } from '../types';
 import { durationHoursAcrossMidnight } from '../utils/time';
-import { theme } from '../theme';
+import { useTheme } from '../useTheme';
 
 interface Props {
   visible: boolean;
@@ -35,17 +35,30 @@ function format12h(hours: number, minutes: number): string {
 }
 
 export default function ActivityModal({ visible, onClose, onSave, onDelete, templates, categories, initial, baseDay }: Props) {
-  const initTemplate = initial ? templates.find(t => t.name === initial.name)?.id : templates[0]?.id;
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initTemplate || '');
-  const [name, setName] = useState<string>(initial?.name || templates[0]?.name || '');
-
-  const initStart = initial ? new Date(initial.startTime) : setTime(baseDay, 9, 0);
-  const initEnd = initial ? new Date(initial.endTime) : setTime(baseDay, 10, 0);
-  const [start, setStart] = useState<Date>(initStart);
-  const [end, setEnd] = useState<Date>(initEnd);
+  const { theme } = useTheme();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [name, setName] = useState<string>('');
+  const [start, setStart] = useState<Date>(new Date());
+  const [end, setEnd] = useState<Date>(new Date());
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // Reset state when modal opens or initial changes
+  useEffect(() => {
+    if (visible) {
+      const initTemplate = initial ? templates.find(t => t.name === initial.name)?.id : templates[0]?.id;
+      const initStart = initial ? new Date(initial.startTime) : setTime(baseDay, 9, 0);
+      const initEnd = initial ? new Date(initial.endTime) : setTime(baseDay, 10, 0);
+
+      setSelectedTemplateId(initTemplate || '');
+      setName(initial?.name || templates[0]?.name || '');
+      setStart(initStart);
+      setEnd(initEnd);
+      setShowStartPicker(false);
+      setShowEndPicker(false);
+    }
+  }, [visible, initial, templates, baseDay]);
 
   const cost = useMemo(() => {
     const c = durationHoursAcrossMidnight(start.toISOString(), end.toISOString());
@@ -67,6 +80,7 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
     if (endAdj < start) {
       endAdj = new Date(endAdj.getTime() + 24 * 60 * 60 * 1000);
     }
+
     const activity: Activity = {
       id,
       name: name.trim() || selectedTemplate?.name || 'Activity',
@@ -75,6 +89,7 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
       endTime: endAdj.toISOString(),
       cost,
     };
+
     onSave(activity);
   }
 
@@ -99,7 +114,7 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
                 const isSelected = selectedTemplateId === t.id;
                 return (
                   <TouchableOpacity key={t.id} onPress={() => selectTemplate(t.id)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, marginRight: 8, backgroundColor: isSelected ? catColor : theme.colors.divider }}>
-                    <Text style={{ color: isSelected ? '#000' : theme.colors.text }}>{t.name}</Text>
+                    <Text style={{ color: isSelected ? '#FFF' : theme.colors.text, fontWeight: isSelected ? '600' : '400' }}>{t.name}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -124,7 +139,14 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
                 mode="time"
                 is24Hour={false}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_e, d) => { setShowStartPicker(false); if (d) setStart(d); }}
+                onChange={(_e, d) => {
+                  setShowStartPicker(false);
+                  if (d) {
+                    // Preserve the baseDay date, only update the time
+                    const newStart = setTime(baseDay, d.getHours(), d.getMinutes());
+                    setStart(newStart);
+                  }
+                }}
               />
             )}
 
@@ -138,7 +160,14 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
                 mode="time"
                 is24Hour={false}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_e, d) => { setShowEndPicker(false); if (d) setEnd(d); }}
+                onChange={(_e, d) => {
+                  setShowEndPicker(false);
+                  if (d) {
+                    // Preserve the baseDay date, only update the time
+                    const newEnd = setTime(baseDay, d.getHours(), d.getMinutes());
+                    setEnd(newEnd);
+                  }
+                }}
               />
             )}
 

@@ -59,27 +59,14 @@ export function isInSleepWindow(now: Date, settings: UserSettings): boolean {
   const bedMins = bedH * 60 + bedM;
   const wakeMins = wakeH * 60 + wakeM;
 
-  console.log('isInSleepWindow check:', {
-    nowTime: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
-    nowMins,
-    bedtime: settings.bedtime,
-    bedMins,
-    wakeTime: settings.wakeTime,
-    wakeMins,
-  });
-
   // Case 1: Bedtime and wake are on same day (e.g., bed 10am, wake 11am - unusual but possible)
   if (bedMins < wakeMins) {
-    const result = nowMins >= bedMins && nowMins < wakeMins;
-    console.log('Same-day sleep window, sleeping:', result);
-    return result;
+    return nowMins >= bedMins && nowMins < wakeMins;
   }
 
   // Case 2: Sleep window crosses midnight (e.g., bed 11pm, wake 7am)
   // You're sleeping if: after bedtime OR before wake time
-  const result = nowMins >= bedMins || nowMins < wakeMins;
-  console.log('Cross-midnight sleep window, sleeping:', result);
-  return result;
+  return nowMins >= bedMins || nowMins < wakeMins;
 }
 
 export function getMostRecentWake(now: Date, settings: UserSettings): Date {
@@ -103,14 +90,18 @@ export function getNextBedtimeFromWake(wake: Date, settings: UserSettings): Date
   return toDateWithTime(next, settings.bedtime);
 }
 
-export function getDayWindow(now: Date, settings: UserSettings) {
-  const start = getMostRecentWake(now, settings);
-  const end = getNextBedtimeFromWake(start, settings);
-  return { start, end };
-}
+export function getMostRecentBedtime(now: Date, settings: UserSettings): Date {
+  const todayBed = toDateWithTime(new Date(now), settings.bedtime);
 
-export function hoursBetween(start: Date, end: Date): number {
-  return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  // If we're past today's bedtime, use it
+  if (now >= todayBed) {
+    return todayBed;
+  }
+
+  // Otherwise use yesterday's bedtime
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toDateWithTime(yesterday, settings.bedtime);
 }
 
 export function getNextBedtime(now: Date, settings: UserSettings): Date {
@@ -129,17 +120,30 @@ export function getNextBedtime(now: Date, settings: UserSettings): Date {
   return toDateWithTime(tomorrow, settings.bedtime);
 }
 
+export function getDayWindow(now: Date, settings: UserSettings) {
+  // Day window is from most recent bedtime to next bedtime
+  // This includes both sleep period (last night) and waking hours (today)
+  const start = getMostRecentBedtime(now, settings);
+  const end = getNextBedtime(now, settings);
+
+  console.log('getDayWindow:', {
+    now: now.toLocaleString(),
+    start: start.toLocaleString(),
+    end: end.toLocaleString(),
+    spanHours: hoursBetween(start, end).toFixed(1),
+  });
+
+  return { start, end };
+}
+
+export function hoursBetween(start: Date, end: Date): number {
+  return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+}
+
 export function computeRemainingDollars(now: Date, settings: UserSettings): number {
   // Calculate hours until next bedtime (1 hour = 1 dollar)
   const nextBed = getNextBedtime(now, settings);
   const hoursUntilBed = Math.max(0, hoursBetween(now, nextBed));
-
-  console.log('computeRemainingDollars:', {
-    now: now.toLocaleString(),
-    nextBedtime: nextBed.toLocaleString(),
-    hoursUntilBed: hoursUntilBed.toFixed(2),
-  });
-
   return round2(hoursUntilBed);
 }
 

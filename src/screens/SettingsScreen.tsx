@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Platform, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ColorPicker from 'react-native-wheel-color-picker';
-import { theme } from '../theme';
+import { ThemeMode } from '../theme';
+import { useTheme } from '../useTheme';
 import { ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
 import { loadActivityTemplates, loadCategories, loadSettings, saveActivityTemplates, saveCategories, saveSettings } from '../storage';
 
 export default function SettingsScreen() {
-  const [settings, setSettings] = useState<UserSettings>({ bedtime: '23:00', wakeTime: '07:00' });
+  const { theme, themeMode, reloadTheme } = useTheme();
+  const [settings, setSettings] = useState<UserSettings>({ bedtime: '23:00', wakeTime: '07:00', themeMode: 'system' });
   const [templates, setTemplates] = useState<ActivityTemplate[]>([]);
   const [categories, setCategories] = useState<Record<CategoryType, Category>>({
     good: { name: 'Good Time', color: '#4CAF50' },
@@ -24,7 +26,9 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       const [s, t, c] = await Promise.all([loadSettings(), loadActivityTemplates(), loadCategories()]);
-      if (s) setSettings(s);
+      if (s) {
+        setSettings({ ...s, themeMode: s.themeMode || 'system' });
+      }
       setTemplates(t);
       setCategories(c);
     })();
@@ -56,6 +60,17 @@ export default function SettingsScreen() {
     await saveSettings(next);
     // Force immediate re-render by updating state
     // This ensures HomeScreen picks up changes when navigating back
+  }
+
+  async function setTheme(mode: ThemeMode) {
+    console.log('🎨 Setting theme to:', mode);
+    const newSettings = { ...settings, themeMode: mode };
+    setSettings(newSettings);
+    await saveSettings(newSettings);
+    console.log('✅ Theme saved:', mode);
+    // Force immediate theme reload
+    await reloadTheme();
+    console.log('🔄 Theme reloaded');
   }
 
   function updateTemplate(idx: number, patch: Partial<ActivityTemplate>) {
@@ -108,6 +123,36 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing(2), paddingBottom: theme.spacing(6) }}>
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>User Settings</Text>
+
+      {/* Theme Toggle */}
+      <Text style={{ color: theme.colors.muted, marginBottom: 8 }}>Theme</Text>
+      <View style={{ flexDirection: 'row', backgroundColor: theme.colors.card, borderRadius: 8, padding: 4, marginBottom: theme.spacing(2) }}>
+        {(['light', 'dark', 'system'] as ThemeMode[]).map((mode) => {
+          const isSelected = (settings.themeMode || 'system') === mode;
+          return (
+            <TouchableOpacity
+              key={mode}
+              onPress={() => setTheme(mode)}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                backgroundColor: isSelected ? theme.colors.accent : 'transparent',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{
+                color: isSelected ? '#FFF' : theme.colors.text,
+                fontWeight: isSelected ? '600' : '400',
+                textTransform: 'capitalize',
+              }}>
+                {mode === 'system' ? 'Auto' : mode}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Horizontal Time Pickers */}
       <View style={{ flexDirection: 'row', marginBottom: theme.spacing(2) }}>

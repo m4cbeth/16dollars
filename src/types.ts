@@ -23,4 +23,5 @@ export interface Activity {
 export interface UserSettings {
   bedtime: string; // e.g. "23:00"
   wakeTime: string; // e.g. "07:00"
+  themeMode?: 'light' | 'dark' | 'system'; // theme preference
 }
