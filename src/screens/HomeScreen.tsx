@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
-import { Activity, Category, UserSettings } from '../types';
-import { addActivity, deleteActivity, loadActivities, loadCategories, loadSettings, updateActivity } from '../storage';
+import { Activity, ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
+import { addActivity, deleteActivity, loadActivities, loadActivityTemplates, loadCategories, loadSettings, updateActivity } from '../storage';
 import { computeRemainingDollars, durationHoursAcrossMidnight, formatTime12h, getDayWindow, isInSleepWindow } from '../utils/time';
 import ActivityModal from '../components/ActivityModal';
 
@@ -13,7 +14,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [templates, setTemplates] = useState<ActivityTemplate[]>([]);
+  const [categories, setCategories] = useState<Record<CategoryType, Category>>({ good: { name: 'Good Time', color: '#4CAF50' }, bad: { name: 'Bad Time', color: '#F44336' }, selfcare: { name: 'Self Care', color: '#FFC107' } });
   const [settings, setSettings] = useState<UserSettings>({ bedtime: '23:00', wakeTime: '07:00' });
   const [now, setNow] = useState<Date>(new Date());
 
@@ -21,12 +23,14 @@ export default function HomeScreen({ navigation }: Props) {
   const [editing, setEditing] = useState<Activity | null>(null);
 
   const refresh = useCallback(async () => {
-    const [acts, cats, setts] = await Promise.all([
+    const [acts, temps, cats, setts] = await Promise.all([
       loadActivities(),
+      loadActivityTemplates(),
       loadCategories(),
       loadSettings(),
     ]);
     setActivities(acts);
+    setTemplates(temps);
     setCategories(cats);
     if (setts) setSettings(setts);
   }, []);
@@ -35,12 +39,36 @@ export default function HomeScreen({ navigation }: Props) {
     refresh();
   }, [refresh]);
 
+  // Refresh when screen comes into focus (e.g., after returning from Settings)
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 36_000);
+    // Update every 36 seconds (0.01 hour)
+    const id = setInterval(() => {
+      setNow(new Date());
+    }, 36_000);
     return () => clearInterval(id);
   }, []);
 
-  const sleeping = useMemo(() => isInSleepWindow(now, settings), [now, settings]);
+  // Also update now whenever settings change (for immediate reactivity)
+  useEffect(() => {
+    setNow(new Date());
+  }, [settings]);
+
+  const sleeping = useMemo(() => {
+    const result = isInSleepWindow(now, settings);
+    console.log('Sleep check:', {
+      now: now.toLocaleTimeString(),
+      bedtime: settings.bedtime,
+      wakeTime: settings.wakeTime,
+      sleeping: result,
+    });
+    return result;
+  }, [now, settings]);
 
   const remaining = useMemo(() => computeRemainingDollars(now, settings), [now, settings]);
 
@@ -58,9 +86,8 @@ export default function HomeScreen({ navigation }: Props) {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [activities, dayWindow]);
 
-  function categoryColor(catId: string): string {
-    const c = categories.find((c) => c.id === catId);
-    return c?.color ?? theme.colors.divider;
+  function categoryColor(catType: CategoryType): string {
+    return categories[catType]?.color ?? theme.colors.divider;
   }
 
   function onAddPress() {
@@ -88,13 +115,15 @@ export default function HomeScreen({ navigation }: Props) {
     if (sleeping) {
       return (
         <View style={{ padding: theme.spacing(2) }}>
-          <Text style={{ color: theme.colors.text, fontSize: 28, fontWeight: '700' }}>Time to invest in sleep</Text>
+          <Text style={{ color: theme.colors.text, fontSize: 28, fontWeight: '700' }}>
+            Time to invest in sleep silly! 🛏️
+            </Text>
         </View>
       );
     }
     return (
       <View style={{ padding: theme.spacing(2) }}>
-        <Text style={{ color: theme.colors.text, fontSize: 48, fontWeight: '800' }}>${remaining.toFixed(2)} remaining today</Text>
+        <Text style={{ color: theme.colors.text, fontSize: 48, fontWeight: '800' }}>${remaining.toFixed(2)} left today</Text>
       </View>
     );
   }
@@ -102,7 +131,7 @@ export default function HomeScreen({ navigation }: Props) {
   function renderCard(a: Activity) {
     const s = new Date(a.startTime);
     const e = new Date(a.endTime);
-    const leftColor = categoryColor(a.category);
+    const leftColor = categoryColor(a.categoryType);
 
     return (
       <TouchableOpacity key={a.id} onPress={() => { setEditing(a); setModalVisible(true); }} style={{ backgroundColor: theme.colors.card, borderRadius: theme.radius, marginHorizontal: theme.spacing(2), marginBottom: theme.spacing(1), ...theme.shadow, overflow: 'hidden' }}>
@@ -143,9 +172,9 @@ export default function HomeScreen({ navigation }: Props) {
         onClose={() => setModalVisible(false)}
         onSave={handleSave}
         onDelete={editing ? handleDelete : undefined}
+        templates={templates}
         categories={categories}
         initial={editing}
-        defaultCategoryId={categories[0]?.id}
         baseDay={dayWindow.start}
       />
     </View>

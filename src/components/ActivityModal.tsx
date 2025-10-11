@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, TextInput, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Activity, Category } from '../types';
+import { Activity, ActivityTemplate, Category, CategoryType } from '../types';
 import { durationHoursAcrossMidnight } from '../utils/time';
 import { theme } from '../theme';
 
@@ -10,9 +10,9 @@ interface Props {
   onClose: () => void;
   onSave: (activity: Activity) => void;
   onDelete?: (id: string) => void;
-  categories: Category[];
+  templates: ActivityTemplate[];
+  categories: Record<CategoryType, Category>;
   initial?: Activity | null;
-  defaultCategoryId?: string;
   baseDay: Date; // most recent wake day for anchoring times
 }
 
@@ -34,10 +34,10 @@ function format12h(hours: number, minutes: number): string {
   return `${h}:${two(d.getMinutes())}${ampm}`;
 }
 
-export default function ActivityModal({ visible, onClose, onSave, onDelete, categories, initial, defaultCategoryId, baseDay }: Props) {
-  const initCat = initial?.category ?? defaultCategoryId ?? categories[0]?.id;
-  const [category, setCategory] = useState<string>(initCat || '');
-  const [name, setName] = useState<string>(initial?.name || (categories.find(c => c.id === initCat)?.name ?? ''));
+export default function ActivityModal({ visible, onClose, onSave, onDelete, templates, categories, initial, baseDay }: Props) {
+  const initTemplate = initial ? templates.find(t => t.name === initial.name)?.id : templates[0]?.id;
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initTemplate || '');
+  const [name, setName] = useState<string>(initial?.name || templates[0]?.name || '');
 
   const initStart = initial ? new Date(initial.startTime) : setTime(baseDay, 9, 0);
   const initEnd = initial ? new Date(initial.endTime) : setTime(baseDay, 10, 0);
@@ -52,6 +52,14 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, cate
     return Math.round(c * 100) / 100;
   }, [start, end]);
 
+  const selectedTemplate = useMemo(() => {
+    return templates.find(t => t.id === selectedTemplateId);
+  }, [templates, selectedTemplateId]);
+
+  const categoryType = useMemo(() => {
+    return selectedTemplate?.categoryType ?? 'good';
+  }, [selectedTemplate]);
+
   function handleSave() {
     const id = initial?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     // If end before start, assume next day
@@ -61,8 +69,8 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, cate
     }
     const activity: Activity = {
       id,
-      name: name.trim() || (categories.find(c => c.id === category)?.name ?? 'Activity'),
-      category,
+      name: name.trim() || selectedTemplate?.name || 'Activity',
+      categoryType,
       startTime: start.toISOString(),
       endTime: endAdj.toISOString(),
       cost,
@@ -70,12 +78,12 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, cate
     onSave(activity);
   }
 
-  function selectCategory(id: string) {
-    const prevCatName = categories.find(c => c.id === category)?.name;
-    const nextCatName = categories.find(c => c.id === id)?.name;
-    // If name matches previous category name, update it to new category name
-    setCategory(id);
-    setName((curr) => (curr.trim() === (prevCatName ?? '') ? (nextCatName ?? curr) : curr));
+  function selectTemplate(id: string) {
+    const prevTemplate = templates.find(t => t.id === selectedTemplateId);
+    const nextTemplate = templates.find(t => t.id === id);
+    // If name matches previous template name, update it to new template name
+    setSelectedTemplateId(id);
+    setName((curr) => (curr.trim() === (prevTemplate?.name ?? '') ? (nextTemplate?.name ?? curr) : curr));
   }
 
   return (
@@ -84,13 +92,17 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, cate
         <View style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderTopLeftRadius: theme.radius, borderTopRightRadius: theme.radius, maxHeight: '90%' }}>
           <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '600', marginBottom: theme.spacing(2) }}>{initial ? 'Edit Activity' : 'Add Activity'}</Text>
           <ScrollView style={{ maxHeight: 380 }}>
-            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Category</Text>
+            <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Activity</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: theme.spacing(2) }}>
-              {categories.map((c) => (
-                <TouchableOpacity key={c.id} onPress={() => selectCategory(c.id)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, marginRight: 8, backgroundColor: category === c.id ? c.color : theme.colors.divider }}>
-                  <Text style={{ color: category === c.id ? '#000' : theme.colors.text }}>{c.name}</Text>
-                </TouchableOpacity>
-              ))}
+              {templates.map((t) => {
+                const catColor = categories[t.categoryType]?.color ?? theme.colors.divider;
+                const isSelected = selectedTemplateId === t.id;
+                return (
+                  <TouchableOpacity key={t.id} onPress={() => selectTemplate(t.id)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, marginRight: 8, backgroundColor: isSelected ? catColor : theme.colors.divider }}>
+                    <Text style={{ color: isSelected ? '#000' : theme.colors.text }}>{t.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
             <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Name</Text>

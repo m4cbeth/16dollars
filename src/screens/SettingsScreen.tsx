@@ -1,21 +1,31 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Platform, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ColorPicker from 'react-native-wheel-color-picker';
 import { theme } from '../theme';
-import { Category, CategoryType, UserSettings } from '../types';
-import { loadCategories, loadSettings, saveCategories, saveSettings } from '../storage';
+import { ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
+import { loadActivityTemplates, loadCategories, loadSettings, saveActivityTemplates, saveCategories, saveSettings } from '../storage';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<UserSettings>({ bedtime: '23:00', wakeTime: '07:00' });
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [templates, setTemplates] = useState<ActivityTemplate[]>([]);
+  const [categories, setCategories] = useState<Record<CategoryType, Category>>({
+    good: { name: 'Good Time', color: '#4CAF50' },
+    bad: { name: 'Bad Time', color: '#F44336' },
+    selfcare: { name: 'Self Care', color: '#FFC107' },
+  });
 
   const [showWakePicker, setShowWakePicker] = useState(false);
   const [showBedPicker, setShowBedPicker] = useState(false);
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [editingColorType, setEditingColorType] = useState<CategoryType | null>(null);
+  const [tempColor, setTempColor] = useState<string>('#4CAF50');
 
   useEffect(() => {
     (async () => {
-      const [s, c] = await Promise.all([loadSettings(), loadCategories()]);
+      const [s, t, c] = await Promise.all([loadSettings(), loadActivityTemplates(), loadCategories()]);
       if (s) setSettings(s);
+      setTemplates(t);
       setCategories(c);
     })();
   }, []);
@@ -44,32 +54,55 @@ export default function SettingsScreen() {
   async function persistSettings(next: UserSettings) {
     setSettings(next);
     await saveSettings(next);
+    // Force immediate re-render by updating state
+    // This ensures HomeScreen picks up changes when navigating back
   }
 
-  function updateCategory(idx: number, patch: Partial<Category>) {
-    setCategories((prev) => {
+  function updateTemplate(idx: number, patch: Partial<ActivityTemplate>) {
+    setTemplates((prev) => {
       const copy = [...prev];
       copy[idx] = { ...copy[idx], ...patch };
       return copy;
     });
   }
 
+  async function saveAllTemplates() {
+    await saveActivityTemplates(templates);
+  }
+
+  function addTemplate() {
+    const newTemplate: ActivityTemplate = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: 'New Activity',
+      categoryType: 'good',
+    };
+    setTemplates((prev) => [...prev, newTemplate]);
+  }
+
+  function removeTemplate(id: string) {
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function updateCategory(type: CategoryType, patch: Partial<Category>) {
+    setCategories((prev) => ({ ...prev, [type]: { ...prev[type], ...patch } }));
+  }
+
   async function saveAllCategories() {
     await saveCategories(categories);
   }
 
-  function addCategory() {
-    const newCat: Category = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: 'New Category',
-      type: 'good',
-      color: theme.colors.green,
-    };
-    setCategories((prev) => [...prev, newCat]);
+  function openColorPicker(type: CategoryType) {
+    setEditingColorType(type);
+    setTempColor(categories[type]?.color ?? '#4CAF50');
+    setColorPickerVisible(true);
   }
 
-  function removeCategory(id: string) {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
+  function saveColor() {
+    if (editingColorType) {
+      updateCategory(editingColorType, { color: tempColor });
+    }
+    setColorPickerVisible(false);
+    setEditingColorType(null);
   }
 
   return (
@@ -116,38 +149,30 @@ export default function SettingsScreen() {
 
       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
 
-      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Categories</Text>
-      {categories.map((c, idx) => (
-        <View key={c.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
+      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Activities</Text>
+      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define your activity templates. Each activity belongs to a category type.</Text>
+      {templates.map((t, idx) => (
+        <View key={t.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: c.color, marginRight: 8 }} />
+            <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: categories[t.categoryType]?.color ?? theme.colors.divider, marginRight: 8 }} />
             <TextInput
-              value={c.name}
-              onChangeText={(t) => updateCategory(idx, { name: t })}
-              placeholder="Category name"
+              value={t.name}
+              onChangeText={(name) => updateTemplate(idx, { name })}
+              placeholder="Activity name"
               placeholderTextColor={theme.colors.muted}
               style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider }}
             />
           </View>
 
-          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-            {(['good','bad','selfcare'] as CategoryType[]).map((t) => (
-              <TouchableOpacity key={t} onPress={() => updateCategory(idx, { type: t })} style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, marginRight: 8, backgroundColor: c.type === t ? theme.colors.accent : theme.colors.divider }}>
-                <Text style={{ color: c.type === t ? '#000' : theme.colors.text }}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: theme.colors.muted, marginRight: 8 }}>Color</Text>
-            <TextInput
-              value={c.color}
-              onChangeText={(t) => updateCategory(idx, { color: t })}
-              placeholder="#hex"
-              placeholderTextColor={theme.colors.muted}
-              style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider }}
-            />
-            <TouchableOpacity onPress={() => removeCategory(c.id)} style={{ padding: 8, marginLeft: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', flex: 1 }}>
+              {(['good','bad','selfcare'] as CategoryType[]).map((type) => (
+                <TouchableOpacity key={type} onPress={() => updateTemplate(idx, { categoryType: type })} style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, marginRight: 8, backgroundColor: t.categoryType === type ? theme.colors.accent : theme.colors.divider }}>
+                  <Text style={{ color: t.categoryType === type ? '#000' : theme.colors.text }}>{type}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => removeTemplate(t.id)} style={{ padding: 8 }}>
               <Text style={{ color: theme.colors.red }}>Delete</Text>
             </TouchableOpacity>
           </View>
@@ -155,13 +180,68 @@ export default function SettingsScreen() {
       ))}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing(2) }}>
-        <TouchableOpacity onPress={addCategory} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider }}>
-          <Text style={{ color: theme.colors.text }}>Add Category</Text>
+        <TouchableOpacity onPress={addTemplate} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider }}>
+          <Text style={{ color: theme.colors.text }}>Add Activity</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={saveAllTemplates} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>
+          <Text style={{ color: '#000' }}>Save Activities</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
+
+      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Categories</Text>
+      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define the three category types and their colors.</Text>
+      {(['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => (
+        <View key={type} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: theme.colors.text, fontWeight: '600', marginRight: 8, textTransform: 'capitalize', width: 80 }}>{type}</Text>
+            <TextInput
+              value={categories[type]?.name ?? ''}
+              onChangeText={(name) => updateCategory(type, { name })}
+              placeholder="Category name"
+              placeholderTextColor={theme.colors.muted}
+              style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider, marginRight: 8 }}
+            />
+            <TouchableOpacity onPress={() => openColorPicker(type)} style={{ width: 60, height: 36, backgroundColor: categories[type]?.color ?? theme.colors.divider, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '600', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{categories[type]?.color?.toUpperCase() ?? ''}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: theme.spacing(2) }}>
         <TouchableOpacity onPress={saveAllCategories} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>
           <Text style={{ color: '#000' }}>Save Categories</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Color Picker Modal */}
+      <Modal visible={colorPickerVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: theme.spacing(3) }}>
+          <View style={{ backgroundColor: theme.colors.card, padding: theme.spacing(3), borderRadius: theme.radius, width: '100%', maxWidth: 400 }}>
+            <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '600', marginBottom: theme.spacing(2), textAlign: 'center' }}>Choose Color</Text>
+            <View style={{ height: 300, marginBottom: theme.spacing(2) }}>
+              <ColorPicker
+                color={tempColor}
+                onColorChange={(color) => setTempColor(color)}
+                thumbSize={30}
+                sliderSize={30}
+                noSnap={true}
+                row={false}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing(2) }}>
+              <TouchableOpacity onPress={() => setColorPickerVisible(false)} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider, marginRight: 8 }}>
+                <Text style={{ color: theme.colors.text, textAlign: 'center' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={saveColor} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>
+                <Text style={{ color: '#000', textAlign: 'center', fontWeight: '600' }}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

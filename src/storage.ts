@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Activity, Category, CategoryType, UserSettings } from './types';
+import { Activity, ActivityTemplate, Category, CategoryType, UserSettings } from './types';
 
 const KEYS = {
   activities: 'activities',
+  activityTemplates: 'activityTemplates',
   categories: 'categories',
   settings: 'settings',
 } as const;
@@ -42,18 +43,32 @@ export async function deleteActivity(id: string): Promise<void> {
   await saveActivities(next);
 }
 
-export async function loadCategories(): Promise<Category[]> {
-  const raw = await AsyncStorage.getItem(KEYS.categories);
+export async function loadActivityTemplates(): Promise<ActivityTemplate[]> {
+  const raw = await AsyncStorage.getItem(KEYS.activityTemplates);
   if (!raw) return [];
   try {
-    return JSON.parse(raw) as Category[];
+    return JSON.parse(raw) as ActivityTemplate[];
   } catch {
     return [];
   }
 }
 
-export async function saveCategories(list: Category[]): Promise<void> {
-  await AsyncStorage.setItem(KEYS.categories, JSON.stringify(list));
+export async function saveActivityTemplates(list: ActivityTemplate[]): Promise<void> {
+  await AsyncStorage.setItem(KEYS.activityTemplates, JSON.stringify(list));
+}
+
+export async function loadCategories(): Promise<Record<CategoryType, Category>> {
+  const raw = await AsyncStorage.getItem(KEYS.categories);
+  if (!raw) return { good: { name: 'Good Time', color: '#4CAF50' }, bad: { name: 'Bad Time', color: '#F44336' }, selfcare: { name: 'Self Care', color: '#FFC107' } };
+  try {
+    return JSON.parse(raw) as Record<CategoryType, Category>;
+  } catch {
+    return { good: { name: 'Good Time', color: '#4CAF50' }, bad: { name: 'Bad Time', color: '#F44336' }, selfcare: { name: 'Self Care', color: '#FFC107' } };
+  }
+}
+
+export async function saveCategories(categories: Record<CategoryType, Category>): Promise<void> {
+  await AsyncStorage.setItem(KEYS.categories, JSON.stringify(categories));
 }
 
 export async function loadSettings(): Promise<UserSettings | null> {
@@ -75,21 +90,37 @@ function idFromName(name: string): string {
 }
 
 export async function ensureDefaults(): Promise<void> {
-  const [cats, settings] = await Promise.all([loadCategories(), loadSettings()]);
+  const [templates, cats, settings] = await Promise.all([
+    loadActivityTemplates(),
+    loadCategories(),
+    loadSettings(),
+  ]);
+  
   if (!settings) {
     await saveSettings({ bedtime: '23:00', wakeTime: '07:00' });
   }
-  if (!cats || cats.length === 0) {
-    const defaults: { name: string; type: CategoryType; color: string }[] = [
-      { name: 'Reading', type: 'good', color: '#4CAF50' },
-      { name: 'Exercise', type: 'good', color: '#4CAF50' },
-      { name: 'Work', type: 'good', color: '#4CAF50' },
-      { name: 'Social Media', type: 'bad', color: '#F44336' },
-      { name: 'Sleep', type: 'selfcare', color: '#FFC107' },
-      { name: 'Bath', type: 'selfcare', color: '#FFC107' },
-      { name: 'Tidying', type: 'selfcare', color: '#FFC107' },
+  
+  // Categories always exist with defaults if missing
+  if (!cats || Object.keys(cats).length === 0) {
+    await saveCategories({
+      good: { name: 'Good Time', color: '#4CAF50' },
+      bad: { name: 'Bad Time', color: '#F44336' },
+      selfcare: { name: 'Self Care', color: '#FFC107' },
+    });
+  }
+  
+  // Activity templates
+  if (!templates || templates.length === 0) {
+    const defaults: { name: string; categoryType: CategoryType }[] = [
+      { name: 'Reading', categoryType: 'good' },
+      { name: 'Exercise', categoryType: 'good' },
+      { name: 'Work', categoryType: 'good' },
+      { name: 'Social Media', categoryType: 'bad' },
+      { name: 'Sleep', categoryType: 'selfcare' },
+      { name: 'Bath', categoryType: 'selfcare' },
+      { name: 'Tidying', categoryType: 'selfcare' },
     ];
-    const catObjs: Category[] = defaults.map((c) => ({ id: idFromName(c.name), ...c }));
-    await saveCategories(catObjs);
+    const templateObjs: ActivityTemplate[] = defaults.map((t) => ({ id: idFromName(t.name), ...t }));
+    await saveActivityTemplates(templateObjs);
   }
 }

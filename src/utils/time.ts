@@ -22,19 +22,22 @@ export function parseISO(iso: string): Date {
 }
 
 export function isInSleepWindow(now: Date, settings: UserSettings): boolean {
-  const today = new Date(now);
-  const todayBed = toDateWithTime(today, settings.bedtime);
-  const nextWake = toDateWithTime(new Date(todayBed.getTime() + 24 * 60 * 60 * 1000), settings.wakeTime);
-
-  if (now >= todayBed && now < nextWake) return true;
-
-  // If now is before today's wake, we're still in last night's sleep window
-  const todayWake = toDateWithTime(today, settings.wakeTime);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yBed = toDateWithTime(yesterday, settings.bedtime);
-  const yNextWake = todayWake; // same as today's wake
-  return now >= yBed && now < yNextWake;
+  const [bedH, bedM] = settings.bedtime.split(':').map(Number);
+  const [wakeH, wakeM] = settings.wakeTime.split(':').map(Number);
+  
+  // Current time in minutes since midnight
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const bedMins = bedH * 60 + bedM;
+  const wakeMins = wakeH * 60 + wakeM;
+  
+  // Case 1: Bedtime and wake are on same day (e.g., bed 10pm, wake 11pm - unusual but possible)
+  if (bedMins < wakeMins) {
+    return nowMins >= bedMins && nowMins < wakeMins;
+  }
+  
+  // Case 2: Sleep window crosses midnight (e.g., bed 11pm, wake 7am)
+  // You're sleeping if: after bedtime OR before wake time
+  return nowMins >= bedMins || nowMins < wakeMins;
 }
 
 export function getMostRecentWake(now: Date, settings: UserSettings): Date {
