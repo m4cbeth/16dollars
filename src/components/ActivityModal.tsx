@@ -110,16 +110,16 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
     setSelectedTemplateId(id);
   }
 
-  function handleQuickAction(actionId: string) {
-    const action = settings.quickActions?.find(qa => qa.id === actionId);
-    if (!action) return;
+  function handleQuickActivity(activityId: string) {
+    const quickActivity = settings.quickActivities?.find(qa => qa.id === activityId);
+    if (!quickActivity) return;
 
-    const template = templates.find(t => t.id === action.templateId);
+    const template = templates.find(t => t.id === quickActivity.templateId);
     if (!template) return;
 
     // Resolve times
-    let startDate = resolveTimeReference(action.startTime, settings, baseDay);
-    let endDate = resolveTimeReference(action.endTime, settings, baseDay);
+    let startDate = resolveTimeReference(quickActivity.startTime, settings, baseDay);
+    let endDate = resolveTimeReference(quickActivity.endTime, settings, baseDay);
 
     // If end is before start, assume it crosses midnight (add 24 hours)
     if (endDate < startDate) {
@@ -145,46 +145,7 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
         <View style={{ backgroundColor: theme.colors.card, padding: theme.spacing(3), borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' }}>
           <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '600', marginBottom: theme.spacing(2) }}>{initial ? 'Edit Activity' : 'Add Activity'}</Text>
 
-          <ScrollView style={{ maxHeight: 450 }}>
-            {/* Quick Actions - Only show when adding new */}
-            {!initial && settings.quickActions && settings.quickActions.filter(qa => qa.enabled).length > 0 && (
-              <View style={{ marginBottom: theme.spacing(3) }}>
-                <Text style={{ color: theme.colors.muted, marginBottom: 12, fontSize: 14, fontWeight: '600' }}>Quick Actions</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                  {settings.quickActions.filter(qa => qa.enabled).map((action) => {
-                    const template = templates.find(t => t.id === action.templateId);
-                    if (!template) return null;
-
-                    const catColor = categories[template.categoryType]?.color ?? theme.colors.divider;
-                    const startTimeStr = formatTimeReference(action.startTime, settings);
-                    const endTimeStr = formatTimeReference(action.endTime, settings);
-
-                    return (
-                      <TouchableOpacity
-                        key={action.id}
-                        onPress={() => handleQuickAction(action.id)}
-                        style={{
-                          backgroundColor: catColor,
-                          borderRadius: 16,
-                          padding: theme.spacing(2),
-                          marginRight: theme.spacing(1),
-                          marginBottom: theme.spacing(1),
-                          minWidth: 100,
-                        }}
-                      >
-                        <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
-                          {template.name}
-                        </Text>
-                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
-                          {startTimeStr} - {endTimeStr}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
+          <ScrollView style={{ maxHeight: 550 }}>
             {/* Activity Templates - Wrapping */}
             <Text style={{ color: theme.colors.muted, marginBottom: 8, fontSize: 14, fontWeight: '600' }}>Activity</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing(3) }}>
@@ -270,6 +231,48 @@ export default function ActivityModal({ visible, onClose, onSave, onDelete, temp
                 )}
               </View>
             </View>
+
+            {/* Quick Activities - Only show when adding new */}
+            {!initial && settings.quickActivities && settings.quickActivities.filter(qa => qa.enabled).length > 0 && (
+              <View style={{ marginTop: theme.spacing(3) }}>
+                <Text style={{ color: theme.colors.muted, marginBottom: 12, fontSize: 14, fontWeight: '600' }}>Quick Activities</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  {settings.quickActivities.filter(qa => qa.enabled).map((quickActivity) => {
+                    const template = templates.find(t => t.id === quickActivity.templateId);
+                    if (!template) return null;
+
+                    const catColor = categories[template.categoryType]?.color ?? theme.colors.divider;
+                    const startTimeStr = formatTimeReference(quickActivity.startTime, settings);
+                    const endTimeStr = formatTimeReference(quickActivity.endTime, settings);
+
+                    return (
+                      <TouchableOpacity
+                        key={quickActivity.id}
+                        onPress={() => handleQuickActivity(quickActivity.id)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: catColor,
+                          borderRadius: 16,
+                          padding: theme.spacing(1.5),
+                          marginHorizontal: 4,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14, marginBottom: 6 }}>
+                          {template.name}
+                        </Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, textAlign: 'center' }}>
+                          {startTimeStr}
+                        </Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, textAlign: 'center' }}>
+                          {endTimeStr}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           {/* Action Buttons */}

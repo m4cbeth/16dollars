@@ -4,8 +4,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { ThemeMode } from '../theme';
 import { useTheme } from '../useTheme';
-import { ActivityTemplate, Category, CategoryType, UserSettings } from '../types';
+import { ActivityTemplate, Category, CategoryType, UserSettings, TimeReference } from '../types';
 import { loadActivityTemplates, loadCategories, loadSettings, saveActivityTemplates, saveCategories, saveSettings } from '../storage';
+import { formatTimeReference } from '../utils/time';
 
 export default function SettingsScreen() {
   const { theme, themeMode, reloadTheme } = useTheme();
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [editingColorType, setEditingColorType] = useState<CategoryType | null>(null);
   const [tempColor, setTempColor] = useState<string>('#4CAF50');
+  const [editingQuickActivityTime, setEditingQuickActivityTime] = useState<{ idx: number, field: 'start' | 'end' } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -317,61 +319,6 @@ export default function SettingsScreen() {
 
       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
 
-      {/* Quick Actions Section */}
-      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Quick Actions</Text>
-      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>One-tap shortcuts to add common activities with preset times.</Text>
-      {(settings.quickActions || []).map((action, idx) => {
-        const template = templates.find(t => t.id === action.templateId);
-        return (
-          <View key={action.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 16, marginBottom: theme.spacing(1) }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing(1) }}>
-              <Text style={{ color: theme.colors.text, fontWeight: '600', fontSize: 16 }}>{template?.name || 'Select Activity'}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  const updated = [...(settings.quickActions || [])];
-                  updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
-                  setSettings({ ...settings, quickActions: updated });
-                }}
-                style={{
-                  width: 50,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: action.enabled ? theme.colors.green : theme.colors.divider,
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                }}
-              >
-                <View style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 10,
-                  backgroundColor: '#FFF',
-                  alignSelf: action.enabled ? 'flex-end' : 'flex-start',
-                }} />
-              </TouchableOpacity>
-            </View>
-            <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
-              This quick action is currently {action.enabled ? 'enabled' : 'disabled'}
-            </Text>
-          </View>
-        );
-      })}
-      <TouchableOpacity
-        onPress={() => persistSettings(settings)}
-        style={{
-          backgroundColor: theme.colors.accent,
-          padding: 12,
-          borderRadius: 10,
-          alignItems: 'center',
-          marginTop: theme.spacing(1),
-          marginBottom: theme.spacing(3),
-        }}
-      >
-        <Text style={{ color: theme.colors.accentText, fontWeight: '700' }}>Save Quick Actions</Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
-
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Activities</Text>
       <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define your activity templates. Each activity belongs to a category type.</Text>
       {templates.map((t, idx) => {
@@ -415,28 +362,211 @@ export default function SettingsScreen() {
 
       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
 
-      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Categories</Text>
-      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define the three category types and their colors.</Text>
-      {(['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => {
-        const catColor = categories[type]?.color ?? theme.colors.divider;
+      {/* Quick Activities Section */}
+      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Quick Activities</Text>
+      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>One-tap shortcuts to add common activities with preset times.</Text>
+      {(settings.quickActivities || []).map((quickActivity, idx) => {
+        const template = templates.find(t => t.id === quickActivity.templateId);
+        const catColor = categories[template?.categoryType || 'good']?.color ?? theme.colors.divider;
+
         return (
-          <View key={type} style={{ backgroundColor: catColor, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: '#FFF', fontWeight: '700', marginRight: 8, textTransform: 'capitalize', width: 80, textShadowColor: 'rgba(0, 0, 0, 0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{type}</Text>
-              <TextInput
-                value={categories[type]?.name ?? ''}
-                onChangeText={(name) => updateCategory(type, { name })}
-                placeholder="Category name"
-                placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                style={{ flex: 1, color: '#FFF', backgroundColor: 'rgba(0, 0, 0, 0.2)', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', marginRight: 8, fontWeight: '600' }}
-              />
-              <TouchableOpacity onPress={() => openColorPicker(type)} style={{ width: 60, height: 36, backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '600', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>🎨 Edit</Text>
+          <View key={quickActivity.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 16, marginBottom: theme.spacing(2), borderLeftWidth: 4, borderLeftColor: catColor }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing(2) }}>
+              <Text style={{ color: theme.colors.text, fontWeight: '700', fontSize: 16 }}>{template?.name || 'Unknown'}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const updated = [...(settings.quickActivities || [])];
+                  updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+                  setSettings({ ...settings, quickActivities: updated });
+                }}
+                style={{
+                  width: 50,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: quickActivity.enabled ? theme.colors.green : theme.colors.divider,
+                  justifyContent: 'center',
+                  paddingHorizontal: 4,
+                }}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: '#FFF',
+                  alignSelf: quickActivity.enabled ? 'flex-end' : 'flex-start',
+                }} />
               </TouchableOpacity>
             </View>
+
+            {/* Template Selector */}
+            <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: 6 }}>Activity Template</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.spacing(2) }}>
+              {templates.map((t) => {
+                const isSelected = quickActivity.templateId === t.id;
+                return (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => {
+                      const updated = [...(settings.quickActivities || [])];
+                      updated[idx] = { ...updated[idx], templateId: t.id };
+                      setSettings({ ...settings, quickActivities: updated });
+                    }}
+                    style={{
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      marginRight: 6,
+                      marginBottom: 6,
+                      backgroundColor: isSelected ? categories[t.categoryType]?.color : theme.colors.divider,
+                    }}
+                  >
+                    <Text style={{ color: isSelected ? '#FFF' : theme.colors.text, fontSize: 12, fontWeight: isSelected ? '600' : '400' }}>
+                      {t.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Time Pickers - Horizontal Row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing(1) }}>
+              {/* Start Time */}
+              <Text style={{ color: theme.colors.muted, fontSize: 14, marginRight: 8 }}>Start:</Text>
+              <TouchableOpacity
+                onPress={() => setEditingQuickActivityTime({ idx, field: 'start' })}
+                style={{
+                  flex: 1,
+                  padding: 10,
+                  backgroundColor: theme.colors.background,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: theme.colors.divider,
+                  marginRight: theme.spacing(1),
+                }}
+              >
+                <Text style={{ color: theme.colors.text, textAlign: 'center', fontSize: 14 }}>
+                  {formatTimeReference(quickActivity.startTime, settings)}
+                </Text>
+              </TouchableOpacity>
+
+              {/* End Time */}
+              <Text style={{ color: theme.colors.muted, fontSize: 14, marginRight: 8 }}>End:</Text>
+              <TouchableOpacity
+                onPress={() => setEditingQuickActivityTime({ idx, field: 'end' })}
+                style={{
+                  flex: 1,
+                  padding: 10,
+                  backgroundColor: theme.colors.background,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: theme.colors.divider
+                }}
+              >
+                <Text style={{ color: theme.colors.text, textAlign: 'center', fontSize: 14 }}>
+                  {formatTimeReference(quickActivity.endTime, settings)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {editingQuickActivityTime?.idx === idx && (
+              <DateTimePicker
+                value={(() => {
+                  const ref = editingQuickActivityTime.field === 'start' ? quickActivity.startTime : quickActivity.endTime;
+                  const d = new Date();
+                  if (ref.type === 'bedtime') {
+                    const [h, m] = settings.bedtime.split(':').map(Number);
+                    d.setHours(h, m, 0, 0);
+                  } else if (ref.type === 'wakeTime') {
+                    const [h, m] = settings.wakeTime.split(':').map(Number);
+                    d.setHours(h, m, 0, 0);
+                  } else {
+                    const [wH, wM] = settings.wakeTime.split(':').map(Number);
+                    const totalMins = wH * 60 + wM + ref.minutes;
+                    d.setHours(Math.floor(totalMins / 60), totalMins % 60, 0, 0);
+                  }
+                  return d;
+                })()}
+                mode="time"
+                is24Hour={false}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_e, selectedDate) => {
+                  setEditingQuickActivityTime(null);
+                  if (!selectedDate) return;
+
+                  const selectedHour = selectedDate.getHours();
+                  const selectedMin = selectedDate.getMinutes();
+                  const selectedTotalMins = selectedHour * 60 + selectedMin;
+
+                  // Check if it matches bedtime or wake time
+                  const [bedH, bedM] = settings.bedtime.split(':').map(Number);
+                  const [wakeH, wakeM] = settings.wakeTime.split(':').map(Number);
+                  const bedMins = bedH * 60 + bedM;
+                  const wakeMins = wakeH * 60 + wakeM;
+
+                  let newRef: TimeReference;
+                  if (selectedTotalMins === bedMins) {
+                    newRef = { type: 'bedtime' };
+                  } else if (selectedTotalMins === wakeMins) {
+                    newRef = { type: 'wakeTime' };
+                  } else {
+                    // Calculate offset from wake time
+                    const offsetMins = selectedTotalMins - wakeMins;
+                    newRef = { type: 'offset', minutes: offsetMins };
+                  }
+
+                  const updated = [...(settings.quickActivities || [])];
+                  if (editingQuickActivityTime.field === 'start') {
+                    updated[idx] = { ...updated[idx], startTime: newRef };
+                  } else {
+                    updated[idx] = { ...updated[idx], endTime: newRef };
+                  }
+                  setSettings({ ...settings, quickActivities: updated });
+                }}
+              />
+            )}
           </View>
         );
       })}
+      <TouchableOpacity
+        onPress={() => persistSettings(settings)}
+        style={{
+          backgroundColor: theme.colors.accent,
+          padding: 12,
+          borderRadius: 10,
+          alignItems: 'center',
+          marginTop: theme.spacing(1),
+          marginBottom: theme.spacing(3),
+        }}
+      >
+        <Text style={{ color: theme.colors.accentText, fontWeight: '700' }}>Save Quick Activities</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
+
+      <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Categories</Text>
+      <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define the three category types and their colors.</Text>
+      {
+        (['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => {
+          const catColor = categories[type]?.color ?? theme.colors.divider;
+          return (
+            <View key={type} style={{ backgroundColor: catColor, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ color: '#FFF', fontWeight: '700', marginRight: 8, textTransform: 'capitalize', width: 80, textShadowColor: 'rgba(0, 0, 0, 0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{type}</Text>
+                <TextInput
+                  value={categories[type]?.name ?? ''}
+                  onChangeText={(name) => updateCategory(type, { name })}
+                  placeholder="Category name"
+                  placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                  style={{ flex: 1, color: '#FFF', backgroundColor: 'rgba(0, 0, 0, 0.2)', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', marginRight: 8, fontWeight: '600' }}
+                />
+                <TouchableOpacity onPress={() => openColorPicker(type)} style={{ width: 60, height: 36, backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '600', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>🎨 Edit</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })
+      }
 
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: theme.spacing(2) }}>
         <TouchableOpacity onPress={saveAllCategories} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>
@@ -470,6 +600,6 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </ScrollView >
   );
 }

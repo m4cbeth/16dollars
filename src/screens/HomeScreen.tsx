@@ -96,6 +96,14 @@ export default function HomeScreen({ navigation }: Props) {
     return categories[catType]?.color ?? theme.colors.divider;
   }
 
+  function formatTimeShort(timeStr: string): string {
+    // Takes "HH:mm" and returns "h:mma" format (e.g., "23:00" -> "11:00p", "07:30" -> "7:30a")
+    const [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'p' : 'a';
+    const displayHour = h % 12 || 12;
+    return `${displayHour}:${m.toString().padStart(2, '0')}${ampm}`;
+  }
+
   function onAddPress() {
     setEditing(null);
     setModalVisible(true);
@@ -340,7 +348,7 @@ export default function HomeScreen({ navigation }: Props) {
               }} />
             </View>
             <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: '600' }}>
-              $0 ({settings.bedtime})
+              $0 ({formatTimeShort(settings.bedtime)})
             </Text>
           </View>
 
@@ -381,7 +389,7 @@ export default function HomeScreen({ navigation }: Props) {
               }} />
             </View>
             <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: '600' }}>
-              $16 ({settings.wakeTime})
+              $16 ({formatTimeShort(settings.wakeTime)})
             </Text>
           </View>
         </View>

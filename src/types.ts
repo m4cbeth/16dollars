@@ -31,7 +31,7 @@ export type TimeReference =
   | { type: 'wakeTime' }
   | { type: 'offset'; minutes: number }; // offset from wakeTime in minutes
 
-export interface QuickAction {
+export interface QuickActivity {
   id: string;
   templateId: string; // which activity template to use
   startTime: TimeReference;
@@ -45,5 +45,5 @@ export interface UserSettings {
   themeMode?: 'light' | 'dark' | 'system'; // theme preference
   goals?: CategoryGoals; // target dollars for each category
   weekEndsOn?: 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'; // last day of week
-  quickActions?: QuickAction[]; // one-tap preset activities
+  quickActivities?: QuickActivity[]; // one-tap preset activities
 }
