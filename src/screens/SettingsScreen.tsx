@@ -109,75 +109,86 @@ export default function SettingsScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing(2), paddingBottom: theme.spacing(6) }}>
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>User Settings</Text>
 
-      <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Wake Time</Text>
-      <TouchableOpacity onPress={() => setShowWakePicker(true)} style={{ padding: 12, backgroundColor: theme.colors.card, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider, marginBottom: theme.spacing(2) }}>
-        <Text style={{ color: theme.colors.text }}>{format12h(hhmmToDate(settings.wakeTime))}</Text>
-      </TouchableOpacity>
-      {showWakePicker && (
-        <DateTimePicker
-          value={hhmmToDate(settings.wakeTime)}
-          mode="time"
-          is24Hour={false}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={async (_e, d) => {
-            setShowWakePicker(false);
-            if (d) {
-              await persistSettings({ ...settings, wakeTime: dateToHHmm(d) });
-            }
-          }}
-        />
-      )}
+      {/* Horizontal Time Pickers */}
+      <View style={{ flexDirection: 'row', marginBottom: theme.spacing(2) }}>
+        {/* Wake Time */}
+        <View style={{ flex: 1, marginRight: theme.spacing(1) }}>
+          <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Wake Time</Text>
+          <TouchableOpacity onPress={() => setShowWakePicker(true)} style={{ padding: 12, backgroundColor: theme.colors.card, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider }}>
+            <Text style={{ color: theme.colors.text, textAlign: 'center' }}>{format12h(hhmmToDate(settings.wakeTime))}</Text>
+          </TouchableOpacity>
+          {showWakePicker && (
+            <DateTimePicker
+              value={hhmmToDate(settings.wakeTime)}
+              mode="time"
+              is24Hour={false}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={async (_e, d) => {
+                setShowWakePicker(false);
+                if (d) {
+                  await persistSettings({ ...settings, wakeTime: dateToHHmm(d) });
+                }
+              }}
+            />
+          )}
+        </View>
 
-      <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Bedtime</Text>
-      <TouchableOpacity onPress={() => setShowBedPicker(true)} style={{ padding: 12, backgroundColor: theme.colors.card, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider, marginBottom: theme.spacing(2) }}>
-        <Text style={{ color: theme.colors.text }}>{format12h(hhmmToDate(settings.bedtime))}</Text>
-      </TouchableOpacity>
-      {showBedPicker && (
-        <DateTimePicker
-          value={hhmmToDate(settings.bedtime)}
-          mode="time"
-          is24Hour={false}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={async (_e, d) => {
-            setShowBedPicker(false);
-            if (d) {
-              await persistSettings({ ...settings, bedtime: dateToHHmm(d) });
-            }
-          }}
-        />
-      )}
+        {/* Bedtime */}
+        <View style={{ flex: 1, marginLeft: theme.spacing(1) }}>
+          <Text style={{ color: theme.colors.muted, marginBottom: 4 }}>Bedtime</Text>
+          <TouchableOpacity onPress={() => setShowBedPicker(true)} style={{ padding: 12, backgroundColor: theme.colors.card, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.divider }}>
+            <Text style={{ color: theme.colors.text, textAlign: 'center' }}>{format12h(hhmmToDate(settings.bedtime))}</Text>
+          </TouchableOpacity>
+          {showBedPicker && (
+            <DateTimePicker
+              value={hhmmToDate(settings.bedtime)}
+              mode="time"
+              is24Hour={false}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={async (_e, d) => {
+                setShowBedPicker(false);
+                if (d) {
+                  await persistSettings({ ...settings, bedtime: dateToHHmm(d) });
+                }
+              }}
+            />
+          )}
+        </View>
+      </View>
 
       <View style={{ height: 1, backgroundColor: theme.colors.divider, marginVertical: theme.spacing(2) }} />
 
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Activities</Text>
       <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define your activity templates. Each activity belongs to a category type.</Text>
-      {templates.map((t, idx) => (
-        <View key={t.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: categories[t.categoryType]?.color ?? theme.colors.divider, marginRight: 8 }} />
-            <TextInput
-              value={t.name}
-              onChangeText={(name) => updateTemplate(idx, { name })}
-              placeholder="Activity name"
-              placeholderTextColor={theme.colors.muted}
-              style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider }}
-            />
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', flex: 1 }}>
-              {(['good','bad','selfcare'] as CategoryType[]).map((type) => (
-                <TouchableOpacity key={type} onPress={() => updateTemplate(idx, { categoryType: type })} style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, marginRight: 8, backgroundColor: t.categoryType === type ? theme.colors.accent : theme.colors.divider }}>
-                  <Text style={{ color: t.categoryType === type ? '#000' : theme.colors.text }}>{type}</Text>
-                </TouchableOpacity>
-              ))}
+      {templates.map((t, idx) => {
+        const catColor = categories[t.categoryType]?.color ?? theme.colors.divider;
+        return (
+          <View key={t.id} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1), borderLeftWidth: 4, borderLeftColor: catColor, overflow: 'hidden' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <TextInput
+                value={t.name}
+                onChangeText={(name) => updateTemplate(idx, { name })}
+                placeholder="Activity name"
+                placeholderTextColor={theme.colors.muted}
+                style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider }}
+              />
             </View>
-            <TouchableOpacity onPress={() => removeTemplate(t.id)} style={{ padding: 8 }}>
-              <Text style={{ color: theme.colors.red }}>Delete</Text>
-            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', flex: 1 }}>
+                {(['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => (
+                  <TouchableOpacity key={type} onPress={() => updateTemplate(idx, { categoryType: type })} style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, marginRight: 8, backgroundColor: t.categoryType === type ? categories[type]?.color : theme.colors.divider }}>
+                    <Text style={{ color: t.categoryType === type ? '#FFF' : theme.colors.text, fontWeight: t.categoryType === type ? '600' : '400' }}>{type}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity onPress={() => removeTemplate(t.id)} style={{ padding: 8 }}>
+                <Text style={{ color: theme.colors.red }}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing(2) }}>
         <TouchableOpacity onPress={addTemplate} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.divider }}>
@@ -192,23 +203,26 @@ export default function SettingsScreen() {
 
       <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: '700', marginBottom: theme.spacing(2) }}>Categories</Text>
       <Text style={{ color: theme.colors.muted, fontSize: 12, marginBottom: theme.spacing(1) }}>Define the three category types and their colors.</Text>
-      {(['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => (
-        <View key={type} style={{ backgroundColor: theme.colors.card, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: theme.colors.text, fontWeight: '600', marginRight: 8, textTransform: 'capitalize', width: 80 }}>{type}</Text>
-            <TextInput
-              value={categories[type]?.name ?? ''}
-              onChangeText={(name) => updateCategory(type, { name })}
-              placeholder="Category name"
-              placeholderTextColor={theme.colors.muted}
-              style={{ flex: 1, color: theme.colors.text, backgroundColor: theme.colors.background, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider, marginRight: 8 }}
-            />
-            <TouchableOpacity onPress={() => openColorPicker(type)} style={{ width: 60, height: 36, backgroundColor: categories[type]?.color ?? theme.colors.divider, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.divider, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '600', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{categories[type]?.color?.toUpperCase() ?? ''}</Text>
-            </TouchableOpacity>
+      {(['good', 'bad', 'selfcare'] as CategoryType[]).map((type) => {
+        const catColor = categories[type]?.color ?? theme.colors.divider;
+        return (
+          <View key={type} style={{ backgroundColor: catColor, padding: theme.spacing(2), borderRadius: 10, marginBottom: theme.spacing(1) }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#FFF', fontWeight: '700', marginRight: 8, textTransform: 'capitalize', width: 80, textShadowColor: 'rgba(0, 0, 0, 0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{type}</Text>
+              <TextInput
+                value={categories[type]?.name ?? ''}
+                onChangeText={(name) => updateCategory(type, { name })}
+                placeholder="Category name"
+                placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                style={{ flex: 1, color: '#FFF', backgroundColor: 'rgba(0, 0, 0, 0.2)', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', marginRight: 8, fontWeight: '600' }}
+              />
+              <TouchableOpacity onPress={() => openColorPicker(type)} style={{ width: 60, height: 36, backgroundColor: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '600', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>🎨 Edit</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: theme.spacing(2) }}>
         <TouchableOpacity onPress={saveAllCategories} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.colors.accent }}>

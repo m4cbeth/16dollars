@@ -60,14 +60,7 @@ export default function HomeScreen({ navigation }: Props) {
   }, [settings]);
 
   const sleeping = useMemo(() => {
-    const result = isInSleepWindow(now, settings);
-    console.log('Sleep check:', {
-      now: now.toLocaleTimeString(),
-      bedtime: settings.bedtime,
-      wakeTime: settings.wakeTime,
-      sleeping: result,
-    });
-    return result;
+    return isInSleepWindow(now, settings);
   }, [now, settings]);
 
   const remaining = useMemo(() => computeRemainingDollars(now, settings), [now, settings]);
@@ -114,16 +107,42 @@ export default function HomeScreen({ navigation }: Props) {
   function renderHeader() {
     if (sleeping) {
       return (
-        <View style={{ padding: theme.spacing(2) }}>
+        <View style={{ padding: theme.spacing(3), paddingTop: theme.spacing(4) }}>
+          {/* Logo */}
+          <View style={{ marginBottom: theme.spacing(3) }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
+              16dollars
+            </Text>
+          </View>
           <Text style={{ color: theme.colors.text, fontSize: 28, fontWeight: '700' }}>
             Time to invest in sleep silly! 🛏️
-            </Text>
+          </Text>
         </View>
       );
     }
+
     return (
-      <View style={{ padding: theme.spacing(2) }}>
-        <Text style={{ color: theme.colors.text, fontSize: 48, fontWeight: '800' }}>${remaining.toFixed(2)} left today</Text>
+      <View style={{ paddingTop: theme.spacing(4), paddingBottom: theme.spacing(2) }}>
+        {/* Logo */}
+        <View style={{ paddingHorizontal: theme.spacing(3), marginBottom: theme.spacing(4) }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 36, fontWeight: '900', letterSpacing: -1 }}>
+            16dollars
+          </Text>
+        </View>
+
+        {/* Vertical Display */}
+        <View>
+          <View style={{ paddingHorizontal: theme.spacing(3), paddingBottom: theme.spacing(1), marginBottom: theme.spacing(2), borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.08)' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '400', letterSpacing: 0.5 }}>
+              left today
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: theme.spacing(3) }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 72, fontWeight: '900', letterSpacing: -2 }}>
+              ${remaining.toFixed(2)}
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -157,12 +176,12 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       {/* Activity list */}
-      <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(1), paddingBottom: theme.spacing(10) }}>
+      <ScrollView contentContainerStyle={{ paddingTop: theme.spacing(1), paddingBottom: theme.spacing(28) }}>
         {todaysActivities.map(renderCard)}
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity onPress={onAddPress} style={{ position: 'absolute', right: theme.spacing(2), bottom: theme.spacing(2), backgroundColor: theme.colors.accent, borderRadius: 28, paddingVertical: 14, paddingHorizontal: 20, ...theme.shadow }}>
+      <TouchableOpacity onPress={onAddPress} style={{ position: 'absolute', right: theme.spacing(8), bottom: theme.spacing(20), backgroundColor: theme.colors.accent, borderRadius: 28, paddingVertical: 14, paddingHorizontal: 20, ...theme.shadow }}>
         <Text style={{ color: '#000', fontWeight: '700', fontSize: 18 }}>+ Add</Text>
       </TouchableOpacity>
 
